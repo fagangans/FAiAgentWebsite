@@ -2,3 +2,7 @@ LenwySesi
 node_modules
 yarn.lockTelegram/database/users.json
 LenwySesi/
+
+# Webchat
+webchat/backend/.env
+webchat/backend/data/

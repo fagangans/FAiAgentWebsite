@@ -1,0 +1,19 @@
+{
+  "name": "webchat-backend",
+  "version": "1.0.0",
+  "description": "Multi-tenant AI chat widget backend - dipasang di banyak website via site_id",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node src/test/run.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "uuid": "^9.0.1",
+    "better-sqlite3": "^11.3.0",
+    "node-fetch": "^3.3.2"
+  }
+}
