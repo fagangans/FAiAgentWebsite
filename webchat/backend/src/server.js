@@ -5,6 +5,7 @@ import express from "express";
 import cors from "cors";
 import { chatRouter } from "./routes/chat.js";
 import { adminRouter } from "./routes/admin.js";
+import { exportRouter } from "./routes/export.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -18,6 +19,7 @@ app.get("/health", (req, res) => res.json({ status: "ok" }));
 
 app.use("/api", chatRouter);
 app.use("/api/admin", adminRouter);
+app.use("/api", exportRouter);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {

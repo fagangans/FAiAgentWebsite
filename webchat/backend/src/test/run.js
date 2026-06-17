@@ -23,6 +23,7 @@ async function main() {
   });
   const created = await createRes.json();
   assert(createRes.ok && created.widgetKey, "registrasi site baru berhasil");
+  assert(!!created.exportToken, "exportToken ikut dikembalikan saat registrasi");
 
   // 3. Kirim chat pertama (harus auto-buat conversation baru)
   const sessionId = "test-session-1";
@@ -61,6 +62,31 @@ async function main() {
   // 7. Admin endpoint tanpa token harus ditolak
   const noAdmin = await fetch(`${BASE}/api/admin/sites`, { method: "GET" });
   assert(noAdmin.status === 403, "admin endpoint tanpa token ditolak (403)");
+
+  // 8. Export messages dengan exportToken yang benar harus berhasil dan berisi CSV
+  const exportRes = await fetch(
+    `${BASE}/api/export?siteId=${created.id}&token=${created.exportToken}&type=messages`,
+  );
+  const exportCsv = await exportRes.text();
+  assert(exportRes.ok, "export messages berhasil (200)");
+  assert(exportCsv.startsWith("session_id,role,content,created_at"), "header CSV messages benar");
+  assert(exportCsv.includes("Halo, ini tes") || exportCsv.includes('"Halo, ini tes"'), "isi pesan ada di CSV");
+
+  // 9. Export usage harus berhasil
+  const exportUsage = await fetch(
+    `${BASE}/api/export?siteId=${created.id}&token=${created.exportToken}&type=usage`,
+  );
+  const usageCsv = await exportUsage.text();
+  assert(exportUsage.ok, "export usage berhasil (200)");
+  assert(usageCsv.startsWith("date,total_messages,tokens_in,tokens_out"), "header CSV usage benar");
+
+  // 10. Export token salah harus ditolak
+  const badExport = await fetch(`${BASE}/api/export?siteId=${created.id}&token=salah&type=messages`);
+  assert(badExport.status === 403, "export dengan token salah ditolak (403)");
+
+  // 11. Export tanpa type harus ditolak
+  const noType = await fetch(`${BASE}/api/export?siteId=${created.id}&token=${created.exportToken}`);
+  assert(noType.status === 400, "export tanpa type ditolak (400)");
 
   console.log("\nSemua test lolos.");
 }

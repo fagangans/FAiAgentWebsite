@@ -20,20 +20,22 @@ adminRouter.post("/sites", requireAdmin, (req, res) => {
 
   const id = uuid();
   const widgetKey = uuid();
+  const exportToken = uuid();
 
   db.prepare(
-    `INSERT INTO sites (id, name, domain, widget_key, system_prompt, ai_provider)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO sites (id, name, domain, widget_key, export_token, system_prompt, ai_provider)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     name,
     domain || null,
     widgetKey,
+    exportToken,
     systemPrompt || "Anda adalah asisten yang membantu.",
     aiProvider || "qwen",
   );
 
-  res.json({ id, widgetKey });
+  res.json({ id, widgetKey, exportToken });
 });
 
 adminRouter.get("/sites", requireAdmin, (req, res) => {

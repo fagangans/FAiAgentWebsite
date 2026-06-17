@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS sites (
   name            TEXT NOT NULL,
   domain          TEXT,
   widget_key      TEXT NOT NULL UNIQUE,    -- key publik yang ditempel di widget (bukan secret)
+  export_token    TEXT NOT NULL UNIQUE,    -- token rahasia untuk klien akses export data sendiri
   system_prompt   TEXT DEFAULT 'Anda adalah asisten yang membantu.',
   ai_provider     TEXT DEFAULT 'qwen',     -- 'qwen' | 'claude' - per-klien bisa beda
   is_active       INTEGER DEFAULT 1,
