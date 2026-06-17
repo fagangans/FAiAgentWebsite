@@ -88,6 +88,29 @@ async function main() {
   const noType = await fetch(`${BASE}/api/export?siteId=${created.id}&token=${created.exportToken}`);
   assert(noType.status === 400, "export tanpa type ditolak (400)");
 
+  // 12. Export insights - dengan MockProvider, balasan bukan JSON valid jadi harus 502 (bukan crash)
+  // Ini cuma tes struktural; kualitas asli baru bisa dicek pakai AI sungguhan (Qwen/Claude)
+  const insightsRes = await fetch(
+    `${BASE}/api/export?siteId=${created.id}&token=${created.exportToken}&type=insights`,
+  );
+  const insightsData = await insightsRes.json();
+  assert(insightsRes.status === 502, "insights dengan MockProvider mengembalikan 502 (balasan bukan JSON)");
+  assert(!!insightsData.raw, "respon 502 menyertakan balasan mentah AI untuk debugging");
+
+  // 13. Export insights tanpa data sama sekali harus balas array kosong, bukan error
+  const emptySite = await fetch(`${BASE}/api/admin/sites`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-admin-token": ADMIN_TOKEN },
+    body: JSON.stringify({ name: "Empty Site", domain: "empty.example.com" }),
+  });
+  const emptySiteData = await emptySite.json();
+  const emptyInsights = await fetch(
+    `${BASE}/api/export?siteId=${emptySiteData.id}&token=${emptySiteData.exportToken}&type=insights`,
+  );
+  const emptyInsightsData = await emptyInsights.json();
+  assert(emptyInsights.ok, "insights tanpa data sama sekali tidak error (200)");
+  assert(Array.isArray(emptyInsightsData.topics) && emptyInsightsData.topics.length === 0, "insights tanpa data balas topics kosong");
+
   console.log("\nSemua test lolos.");
 }
 

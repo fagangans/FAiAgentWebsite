@@ -9,6 +9,7 @@ Backend + widget chat AI yang bisa dipasang di banyak website sekaligus.
 - [x] Step 4-5: Endpoint chat + widget JS
 - [x] Step 6: Test internal pakai Mock AI — **11/11 test lolos**
 - [x] Export data ke CSV (self-service, klien akses sendiri pakai `exportToken`)
+- [x] Insight AI: rekap topik pertanyaan paling sering ditanyakan (FAQ otomatis)
 - [ ] Step 7: Sambungkan API key asli (Qwen via OpenRouter / Claude) — **menunggu API key dari Anda**
 - [ ] Step 8: Hardening tambahan
 - [ ] Step 9: Deploy
@@ -63,6 +64,22 @@ https://YOUR_BACKEND_URL/api/export?siteId=SITE_ID&token=EXPORT_TOKEN&type=usage
 ```
 
 Tambahkan `&from=2026-06-01&to=2026-06-30` untuk filter rentang tanggal. File CSV yang dihasilkan bisa langsung dibuka di Excel atau di-import ke Google Sheets (File → Import).
+
+## Insight AI - rekap pertanyaan paling sering (FAQ otomatis)
+
+Selain CSV, ada endpoint yang minta AI mengelompokkan dan merangking pertanyaan pengunjung dalam periode tertentu - jadi klien bisa tahu "apa yang paling sering ditanyakan bulan ini" tanpa baca satu-satu:
+
+```
+https://YOUR_BACKEND_URL/api/export?siteId=SITE_ID&token=EXPORT_TOKEN&type=insights&from=2026-06-01&to=2026-06-30
+```
+
+Responnya JSON, bukan CSV:
+
+```json
+{ "topics": [{ "topic": "Tanya ongkos kirim", "count": 34 }, { "topic": "Tanya stok produk", "count": 21 }], "totalQuestions": 120 }
+```
+
+Fitur ini memanggil AI provider yang sama dengan chat (`ai_provider` milik site tersebut), jadi kualitas pengelompokan baru bisa dicek penuh setelah API key asli (Qwen/Claude) terpasang - saat masih pakai `USE_MOCK_AI=true`, endpoint ini akan balas error 502 karena balasan mock bukan format JSON yang valid.
 
 ## Ganti model AI per klien
 
