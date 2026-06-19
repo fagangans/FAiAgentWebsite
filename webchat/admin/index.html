@@ -71,6 +71,13 @@
   /* Toast */
   .toast { position: fixed; bottom: 20px; right: 20px; background: #c9a84c; color: #050505; padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; z-index: 9999; opacity: 0; transition: opacity .3s; pointer-events: none; }
   .toast.show { opacity: 1; }
+
+  /* Edit modal */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: center; justify-content: center; z-index: 10000; padding: 20px; }
+  .modal-overlay.open { display: flex; }
+  .modal-box { background: #0a0a0a; border: 1px solid rgba(255,255,255,.15); border-radius: 16px; padding: 24px; width: 480px; max-width: 100%; }
+  .modal-box h3 { font-size: 16px; color: #c9a84c; margin-bottom: 16px; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 </style>
 </head>
 <body>
@@ -166,6 +173,29 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- Edit site modal -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal-box">
+    <h3>Edit Website</h3>
+    <div class="form-row">
+      <label>Nama Website</label>
+      <input type="text" id="edit-name">
+    </div>
+    <div class="form-row">
+      <label>Domain (opsional)</label>
+      <input type="text" id="edit-domain">
+    </div>
+    <div class="form-row">
+      <label>System Prompt (instruksi karakter AI)</label>
+      <textarea id="edit-prompt" style="height:120px"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline btn-sm" onclick="closeEditModal()">Batal</button>
+      <button class="btn btn-gold btn-sm" id="edit-save-btn" onclick="saveEdit()">Simpan</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const API_BASE = window.location.origin;
 let adminToken = "";
@@ -218,7 +248,7 @@ function loadSites() {
         el.innerHTML = '<div class="empty-msg">Belum ada website terdaftar. Tambah yang pertama di atas.</div>';
         return;
       }
-      let html = '<table class="sites-table"><thead><tr><th>Nama</th><th>Domain</th><th>Widget Key</th><th>Status</th><th>Dibuat</th></tr></thead><tbody>';
+      let html = '<table class="sites-table"><thead><tr><th>Nama</th><th>Domain</th><th>Widget Key</th><th>Status</th><th>Dibuat</th><th></th></tr></thead><tbody>';
       sites.forEach(s => {
         const badge = s.is_active
           ? '<span class="badge badge-active">Aktif</span>'
@@ -231,6 +261,7 @@ function loadSites() {
         html += '<td><span class="wk-text" title="Klik untuk salin" onclick="copyText(\'' + wk + '\')">' + wk.slice(0, 8) + '...</span></td>';
         html += '<td>' + badge + '</td>';
         html += '<td style="color:rgba(255,255,255,.4)">' + date + '</td>';
+        html += '<td><button class="btn btn-outline btn-sm" onclick="openEditModal(\'' + s.id + '\')">Edit</button></td>';
         html += '</tr>';
       });
       html += '</tbody></table>';
@@ -281,6 +312,62 @@ function addSite() {
     .finally(() => {
       btn.disabled = false;
       btn.textContent = "Tambah Website";
+    });
+}
+
+let editingSiteId = null;
+
+function openEditModal(siteId) {
+  fetch(API_BASE + "/api/admin/sites/" + siteId, { headers: { "X-Admin-Token": adminToken } })
+    .then(r => {
+      if (!r.ok) throw new Error("Gagal memuat data website");
+      return r.json();
+    })
+    .then(site => {
+      editingSiteId = site.id;
+      document.getElementById("edit-name").value = site.name || "";
+      document.getElementById("edit-domain").value = site.domain || "";
+      document.getElementById("edit-prompt").value = site.system_prompt || "";
+      document.getElementById("edit-modal").classList.add("open");
+    })
+    .catch(err => showToast("Gagal: " + err.message));
+}
+
+function closeEditModal() {
+  editingSiteId = null;
+  document.getElementById("edit-modal").classList.remove("open");
+}
+
+function saveEdit() {
+  if (!editingSiteId) return;
+  const name = document.getElementById("edit-name").value.trim();
+  const domain = document.getElementById("edit-domain").value.trim();
+  const systemPrompt = document.getElementById("edit-prompt").value.trim();
+
+  if (!name) { showToast("Nama website wajib diisi"); return; }
+
+  const btn = document.getElementById("edit-save-btn");
+  btn.disabled = true;
+  btn.textContent = "Menyimpan...";
+
+  fetch(API_BASE + "/api/admin/sites/" + editingSiteId, {
+    method: "PATCH",
+    headers: { "X-Admin-Token": adminToken, "Content-Type": "application/json" },
+    body: JSON.stringify({ name, domain, systemPrompt })
+  })
+    .then(r => {
+      if (!r.ok) return r.json().then(d => { throw new Error(d.error); });
+      return r.json();
+    })
+    .then(() => {
+      showToast("Perubahan disimpan");
+      closeEditModal();
+      loadSites();
+    })
+    .catch(err => showToast("Gagal: " + err.message))
+    .finally(() => {
+      btn.disabled = false;
+      btn.textContent = "Simpan";
     });
 }
 

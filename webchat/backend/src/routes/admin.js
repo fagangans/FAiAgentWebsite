@@ -45,4 +45,32 @@ adminRouter.get("/sites", requireAdmin, (req, res) => {
   res.json(sites);
 });
 
+adminRouter.get("/sites/:id", requireAdmin, (req, res) => {
+  const site = db
+    .prepare("SELECT id, name, domain, widget_key, system_prompt, ai_provider, is_active, created_at FROM sites WHERE id = ?")
+    .get(req.params.id);
+  if (!site) return res.status(404).json({ error: "Website tidak ditemukan" });
+  res.json(site);
+});
+
+adminRouter.patch("/sites/:id", requireAdmin, (req, res) => {
+  const site = db.prepare("SELECT id FROM sites WHERE id = ?").get(req.params.id);
+  if (!site) return res.status(404).json({ error: "Website tidak ditemukan" });
+
+  const { name, domain, systemPrompt, isActive } = req.body;
+  const fields = [];
+  const values = [];
+
+  if (name !== undefined) { fields.push("name = ?"); values.push(name); }
+  if (domain !== undefined) { fields.push("domain = ?"); values.push(domain || null); }
+  if (systemPrompt !== undefined) { fields.push("system_prompt = ?"); values.push(systemPrompt); }
+  if (isActive !== undefined) { fields.push("is_active = ?"); values.push(isActive ? 1 : 0); }
+
+  if (!fields.length) return res.status(400).json({ error: "Tidak ada field yang diubah" });
+
+  db.prepare(`UPDATE sites SET ${fields.join(", ")} WHERE id = ?`).run(...values, req.params.id);
+
+  res.json({ ok: true });
+});
+
 export default adminRouter;
