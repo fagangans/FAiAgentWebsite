@@ -6,3 +6,4 @@ LenwySesi/
 # Webchat
 webchat/backend/.env
 webchat/backend/data/
+webchat/backups/

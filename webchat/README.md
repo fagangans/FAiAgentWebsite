@@ -11,8 +11,8 @@ Backend + widget chat AI yang bisa dipasang di banyak website sekaligus.
 - [x] Export data ke CSV (self-service, klien akses sendiri pakai `exportToken`)
 - [x] Insight AI: rekap topik pertanyaan paling sering ditanyakan (FAQ otomatis)
 - [x] Step 7: Sambungkan API key asli — **Gemini terpasang dan teruji end-to-end (chat + insight) pakai API key sungguhan**
-- [ ] Step 8: Hardening tambahan
-- [ ] Step 9: Deploy
+- [x] Step 8: Hardening tambahan (rate limit, error handling, security headers via Nginx)
+- [x] Step 9: Deploy — **skrip setup VPS, PM2, Nginx, SSL, backup DB siap pakai**
 
 ## Jalankan lokal
 
@@ -108,3 +108,33 @@ Perbandingan biaya per 1 juta token (harga tier berbayar; ada tier gratis harian
 | `gemini-2.5-pro` / `gemini-3.1-pro` | jauh lebih mahal | jauh lebih mahal | hanya untuk kasus yang butuh reasoning berat |
 
 Biaya aktual per percakapan sangat kecil — 1 balasan chat singkat biasanya hanya puluhan-ratusan token, jadi 1 juta token bisa untuk ribuan percakapan.
+
+## Deploy ke VPS
+
+Semua file deploy ada di `webchat/deploy/`. Tinggal jalankan satu skrip untuk setup VPS baru:
+
+```bash
+# Di VPS (Ubuntu/Debian), jalankan sebagai root:
+chmod +x webchat/deploy/setup-vps.sh
+sudo ./webchat/deploy/setup-vps.sh
+```
+
+Skrip ini akan install Node.js 22, PM2, Nginx, Certbot, dan SQLite3. Setelah selesai, ikuti instruksi yang ditampilkan di layar.
+
+### Ringkasan langkah setelah setup-vps.sh:
+
+1. `git clone` repo, `npm install --production`
+2. Buat `.env` (copy dari `.env.example`, isi `GEMINI_API_KEY` dan `ADMIN_TOKEN`)
+3. `pm2 start ecosystem.config.cjs` lalu `pm2 save && pm2 startup`
+4. Copy `deploy/nginx-webchat.conf` ke `/etc/nginx/sites-available/`, ganti domain, reload Nginx
+5. `certbot --nginx -d api.DOMAIN_ANDA.com` untuk SSL gratis
+6. Setup backup DB: `crontab -e` → `0 3 * * * /path/to/deploy/backup-db.sh`
+
+### File deploy yang tersedia:
+
+| File | Fungsi |
+|------|--------|
+| `deploy/setup-vps.sh` | Install semua dependensi sistem di VPS baru |
+| `deploy/nginx-webchat.conf` | Konfigurasi Nginx reverse proxy + security headers |
+| `deploy/backup-db.sh` | Backup SQLite harian, simpan 30 hari, hapus yang lama |
+| `backend/ecosystem.config.cjs` | Konfigurasi PM2: auto-restart, memory limit, logging |
