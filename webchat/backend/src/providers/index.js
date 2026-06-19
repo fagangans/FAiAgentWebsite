@@ -1,6 +1,7 @@
 import { MockProvider } from "./MockProvider.js";
 import { QwenProvider } from "./QwenProvider.js";
 import { ClaudeProvider } from "./ClaudeProvider.js";
+import { GeminiProvider } from "./GeminiProvider.js";
 
 // Factory: pilih provider berdasarkan kolom ai_provider di tabel sites,
 // kecuali USE_MOCK_AI=true (dipakai saat testing internal, Step 6).
@@ -11,7 +12,9 @@ export function getProvider(providerName) {
     case "claude":
       return new ClaudeProvider();
     case "qwen":
-    default:
       return new QwenProvider();
+    case "gemini":
+    default:
+      return new GeminiProvider();
   }
 }

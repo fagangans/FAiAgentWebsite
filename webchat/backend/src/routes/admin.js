@@ -32,7 +32,7 @@ adminRouter.post("/sites", requireAdmin, (req, res) => {
     widgetKey,
     exportToken,
     systemPrompt || "Anda adalah asisten yang membantu.",
-    aiProvider || "qwen",
+    aiProvider || "gemini",
   );
 
   res.json({ id, widgetKey, exportToken });

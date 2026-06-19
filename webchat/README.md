@@ -5,12 +5,12 @@ Backend + widget chat AI yang bisa dipasang di banyak website sekaligus.
 
 ## Status
 
-- [x] Step 1-3: Scaffold, skema DB (SQLite lokal via `better-sqlite3`), provider abstraction (Qwen/Claude/Mock)
+- [x] Step 1-3: Scaffold, skema DB (SQLite lokal via `better-sqlite3`), provider abstraction (Gemini/Qwen/Claude/Mock)
 - [x] Step 4-5: Endpoint chat + widget JS
 - [x] Step 6: Test internal pakai Mock AI — **11/11 test lolos**
 - [x] Export data ke CSV (self-service, klien akses sendiri pakai `exportToken`)
 - [x] Insight AI: rekap topik pertanyaan paling sering ditanyakan (FAQ otomatis)
-- [ ] Step 7: Sambungkan API key asli (Qwen via OpenRouter / Claude) — **menunggu API key dari Anda**
+- [x] Step 7: Sambungkan API key asli — **Gemini terpasang dan teruji end-to-end (chat + insight) pakai API key sungguhan**
 - [ ] Step 8: Hardening tambahan
 - [ ] Step 9: Deploy
 
@@ -34,7 +34,7 @@ curl -X POST http://localhost:3001/api/admin/sites \
     "name": "Toko Si Fulan",
     "domain": "tokofulan.com",
     "systemPrompt": "Anda adalah asisten toko online Si Fulan, bantu jawab soal produk dan pengiriman.",
-    "aiProvider": "qwen"
+    "aiProvider": "gemini"
   }'
 ```
 
@@ -79,8 +79,32 @@ Responnya JSON, bukan CSV:
 { "topics": [{ "topic": "Tanya ongkos kirim", "count": 34 }, { "topic": "Tanya stok produk", "count": 21 }], "totalQuestions": 120 }
 ```
 
-Fitur ini memanggil AI provider yang sama dengan chat (`ai_provider` milik site tersebut), jadi kualitas pengelompokan baru bisa dicek penuh setelah API key asli (Qwen/Claude) terpasang - saat masih pakai `USE_MOCK_AI=true`, endpoint ini akan balas error 502 karena balasan mock bukan format JSON yang valid.
+Fitur ini memanggil AI provider yang sama dengan chat (`ai_provider` milik site tersebut). Sudah diuji end-to-end pakai Gemini sungguhan: 8 pertanyaan acak berhasil dikelompokkan AI jadi 4 topik (ongkir, stok, COD, pembayaran) dengan count yang benar. Kalau masih pakai `USE_MOCK_AI=true`, endpoint ini akan balas error 502 karena balasan mock bukan format JSON yang valid (ini sengaja, bukan bug).
 
 ## Ganti model AI per klien
 
-Kolom `ai_provider` di tabel `sites` bisa diisi `qwen` (default, murah) atau `claude` (kualitas lebih tinggi). Tidak perlu deploy ulang kode untuk ganti provider per klien.
+Kolom `ai_provider` di tabel `sites` bisa diisi:
+
+| Provider | Kapan dipakai |
+|----------|---------------|
+| `gemini` (default) | Model Google AI Studio, paling hemat token, dipakai untuk website Anda sendiri |
+| `qwen` | Via OpenRouter, alternatif murah |
+| `claude` | Kualitas tertinggi, biaya lebih mahal |
+
+Tidak perlu deploy ulang kode untuk ganti provider per klien — cukup ubah kolom `ai_provider` saat registrasi atau lewat update langsung ke tabel `sites`.
+
+## Provider Gemini - setup & biaya
+
+Default model: **`gemini-2.5-flash-lite`** (model paling hemat token yang masih stabil/GA per Juni 2026 — `gemini-2.0-flash-lite` sudah di-deprecate Google per 1 Juni 2026, jadi sengaja tidak dipakai). Bisa dioverride lewat env `GEMINI_MODEL` kalau butuh kualitas lebih tinggi.
+
+Dapatkan API key gratis di [Google AI Studio](https://aistudio.google.com/apikey), isi `GEMINI_API_KEY` di `.env`.
+
+Perbandingan biaya per 1 juta token (harga tier berbayar; ada tier gratis harian untuk testing/trafik kecil sebelum kena biaya ini):
+
+| Model | Input / 1M token | Output / 1M token | Catatan |
+|-------|-------------------|---------------------|---------|
+| **`gemini-2.5-flash-lite`** (default) | $0.10 | $0.40 | Paling hemat, cocok untuk chat customer support volume tinggi |
+| `gemini-2.5-flash` | $0.30 | $2.50 | Lebih pintar, ~3x lebih mahal di input, ~6x di output |
+| `gemini-2.5-pro` / `gemini-3.1-pro` | jauh lebih mahal | jauh lebih mahal | hanya untuk kasus yang butuh reasoning berat |
+
+Biaya aktual per percakapan sangat kecil — 1 balasan chat singkat biasanya hanya puluhan-ratusan token, jadi 1 juta token bisa untuk ribuan percakapan.
