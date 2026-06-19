@@ -75,9 +75,28 @@
   /* Edit modal */
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: center; justify-content: center; z-index: 10000; padding: 20px; }
   .modal-overlay.open { display: flex; }
-  .modal-box { background: #0a0a0a; border: 1px solid rgba(255,255,255,.15); border-radius: 16px; padding: 24px; width: 480px; max-width: 100%; }
+  .modal-box { background: #0a0a0a; border: 1px solid rgba(255,255,255,.15); border-radius: 16px; padding: 24px; width: 520px; max-width: 100%; max-height: 90vh; overflow-y: auto; }
   .modal-box h3 { font-size: 16px; color: #c9a84c; margin-bottom: 16px; }
   .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+
+  /* Script modal extras */
+  .script-section { margin-bottom: 16px; }
+  .script-section h4 { font-size: 13px; color: #c9a84c; margin-bottom: 6px; font-weight: 600; }
+  .script-section pre { background: #050505; border: 1px solid rgba(255,255,255,.1); border-radius: 8px; padding: 12px; font-size: 11px; overflow-x: auto; color: #e0c77a; white-space: pre-wrap; word-break: break-all; margin-bottom: 6px; line-height: 1.6; }
+  .script-section .copy-row { display: flex; justify-content: flex-end; }
+  .pin-box { text-align: center; padding: 20px 0; }
+  .pin-box p { font-size: 13px; color: rgba(255,255,255,.6); margin-bottom: 12px; }
+  .pin-box input { width: 240px; padding: 10px; border: 1px solid rgba(255,255,255,.15); border-radius: 8px; background: transparent; color: #fff; font-size: 14px; outline: none; text-align: center; margin-bottom: 12px; }
+  .pin-box input:focus { border-color: #c9a84c; }
+  .pin-error { color: #ef4444; font-size: 12px; margin-bottom: 8px; display: none; }
+  .btn-row { display: flex; gap: 6px; }
+
+  /* Guide code blocks */
+  .guide-code { background: #050505; border: 1px solid rgba(255,255,255,.1); border-radius: 8px; padding: 14px; font-size: 11px; color: #e0c77a; white-space: pre-wrap; word-break: break-all; line-height: 1.7; margin: 8px 0 4px 0; font-family: 'Courier New', monospace; overflow-x: auto; }
+  .guide-code .code-comment { color: rgba(255,255,255,.3); }
+  .guide-code .code-tag { color: #c9a84c; }
+  .guide-code .code-attr { color: #7dd3fc; }
+  .guide-sub { font-size: 12px; color: rgba(255,255,255,.5); margin-top: 4px; margin-bottom: 0; line-height: 1.5; }
 </style>
 </head>
 <body>
@@ -103,20 +122,59 @@
   <div class="guide-card">
     <h2>Panduan Menghubungkan AI Chatbot ke Website</h2>
     <ol class="guide-steps">
-      <li><strong>Daftarkan website</strong> di form "Tambah Website Baru" di bawah. Isi nama website dan System Prompt (instruksi karakter AI, contoh: "Kamu adalah asisten toko sepatu yang ramah"). Domain opsional.</li>
-      <li>Setelah berhasil, akan muncul <strong>kode script</strong>. Klik tombol <strong>"Salin Kode"</strong> untuk menyalin.</li>
-      <li>Buka file HTML utama website kamu. Cari tag <code>&lt;/body&gt;</code> di bagian paling bawah.</li>
-      <li><strong>Tempel kode script</strong> tepat sebelum <code>&lt;/body&gt;</code>. Contoh hasil:
-        <br><code>&lt;script src=".../chat-widget.js" data-widget-key="..." data-api-url="..."&gt;&lt;/script&gt;</code>
-        <br><code>&lt;/body&gt;</code></li>
-      <li>Kalau pakai <strong>Next.js</strong> (React), buka <code>src/app/layout.tsx</code>, tambahkan <code>import Script from "next/script"</code>, lalu tempel di dalam <code>&lt;body&gt;</code>:
-        <br><code>&lt;Script src="..." data-widget-key="..." data-api-url="..." strategy="afterInteractive" /&gt;</code></li>
-      <li><strong>Simpan, deploy/refresh</strong> website. Bubble chat akan muncul di pojok kanan bawah. Klik untuk mulai chat dengan AI.</li>
+      <li><strong>Daftarkan website</strong> di form "Tambah Website Baru" di bawah ini.<br>
+        Isi <strong>Nama Website</strong> (wajib), <strong>Domain</strong> (opsional, untuk catatan saja), dan <strong>System Prompt</strong> (instruksi untuk AI — tulis semua info tentang bisnis/website kamu di sini, karena AI hanya tahu apa yang kamu tulis).<br>
+        <p class="guide-sub">Contoh System Prompt:<br><em>"Kamu adalah asisten Toko Sepatu XYZ. Produk: Nike Air Max (Rp 1.5jt), Adidas Ultraboost (Rp 2jt). Jam buka: Senin-Sabtu 09:00-21:00. Kontak WA: 08123456789."</em></p>
+      </li>
+      <li>Setelah berhasil, akan muncul <strong>kode script embed</strong>. Klik tombol <strong>"Salin Kode"</strong> untuk menyalin. Kalau lupa, kamu bisa klik tombol <strong>"Script"</strong> di tabel Website Terdaftar kapan saja (butuh verifikasi Admin Token).</li>
+      <li>
+        <strong>Untuk website HTML biasa:</strong> Buka file HTML utama (misal <code>index.html</code>). Tempel kode script tepat <strong>sebelum</strong> tag <code>&lt;/body&gt;</code> (baris terakhir sebelum body ditutup).
+        <div class="guide-code"><span class="code-comment">&lt;!-- File: index.html --&gt;</span>
+<span class="code-tag">&lt;body&gt;</span>
+  <span class="code-comment">&lt;!-- ... isi halaman website kamu ... --&gt;</span>
+  &lt;h1&gt;Selamat Datang&lt;/h1&gt;
+  &lt;p&gt;Konten website kamu di sini.&lt;/p&gt;
+
+  <span class="code-comment">&lt;!-- TEMPEL KODE INI DI SINI (sebelum &lt;/body&gt;) --&gt;</span>
+  <span class="code-tag">&lt;script</span>
+    <span class="code-attr">src</span>=<span style="color:#22c55e">"https://BACKEND_URL/widget/chat-widget.js"</span>
+    <span class="code-attr">data-widget-key</span>=<span style="color:#22c55e">"WIDGET_KEY_KAMU"</span>
+    <span class="code-attr">data-api-url</span>=<span style="color:#22c55e">"https://BACKEND_URL/api/chat"</span><span class="code-tag">&gt;&lt;/script&gt;</span>
+<span class="code-tag">&lt;/body&gt;</span>
+<span class="code-tag">&lt;/html&gt;</span></div>
+        <p class="guide-sub">Ganti <code>BACKEND_URL</code> dengan URL backend kamu (misal <code>https://chat.domainmu.com</code>) dan <code>WIDGET_KEY_KAMU</code> dengan widget key dari hasil pendaftaran.</p>
+      </li>
+      <li>
+        <strong>Untuk Next.js (App Router):</strong> Buka file <code>src/app/layout.tsx</code>. Tambahkan import di bagian atas file, lalu tempel komponen <code>&lt;Script&gt;</code> di dalam <code>&lt;body&gt;</code> setelah konten terakhir, sebelum <code>&lt;/body&gt;</code>.
+        <div class="guide-code"><span class="code-comment">// File: src/app/layout.tsx</span>
+<span class="code-comment">// Tambahkan import ini di bagian atas (bersama import lain):</span>
+<span class="code-tag">import</span> Script <span class="code-tag">from</span> <span style="color:#22c55e">"next/script"</span>;
+
+<span class="code-comment">// Lalu di dalam return, taruh &lt;Script&gt; sebelum &lt;/body&gt;:</span>
+<span class="code-tag">&lt;body</span> <span class="code-attr">className</span>=<span style="color:#22c55e">"..."</span><span class="code-tag">&gt;</span>
+  <span class="code-comment">&lt;!-- komponen-komponen kamu --&gt;</span>
+  &lt;SmoothScrollProvider&gt;
+    {children}
+  &lt;/SmoothScrollProvider&gt;
+
+  <span class="code-comment">{/* TEMPEL DI SINI (sebelum &lt;/body&gt;) */}</span>
+  <span class="code-tag">&lt;Script</span>
+    <span class="code-attr">src</span>=<span style="color:#22c55e">"https://BACKEND_URL/widget/chat-widget.js"</span>
+    <span class="code-attr">data-widget-key</span>=<span style="color:#22c55e">"WIDGET_KEY_KAMU"</span>
+    <span class="code-attr">data-api-url</span>=<span style="color:#22c55e">"https://BACKEND_URL/api/chat"</span>
+    <span class="code-attr">strategy</span>=<span style="color:#22c55e">"afterInteractive"</span>
+  <span class="code-tag">/&gt;</span>
+<span class="code-tag">&lt;/body&gt;</span></div>
+        <p class="guide-sub"><code>strategy="afterInteractive"</code> membuat script dijalankan setelah halaman siap, supaya tidak memperlambat loading website.</p>
+      </li>
+      <li><strong>Simpan file, deploy/refresh</strong> website. Bubble chat (lingkaran emas) akan muncul di pojok kanan bawah. Klik untuk mulai chat dengan AI.</li>
+      <li>Mau <strong>edit System Prompt</strong> atau info website nanti? Klik tombol <strong>"Edit"</strong> di tabel Website Terdaftar. Perubahan langsung berlaku tanpa perlu ganti kode embed.</li>
     </ol>
     <div class="guide-note">
-      <strong>Catatan penting:</strong> Selama backend masih di <code>localhost</code>, chatbot hanya bisa diakses dari komputer kamu sendiri. Supaya bisa diakses publik oleh semua pengunjung, backend harus di-deploy ke VPS/server dengan domain HTTPS (misal <code>https://chat.domainmu.com</code>), lalu ganti URL di kode script dari <code>localhost:3001</code> ke domain tersebut.
-      <br><br>
-      <strong>Export Token</strong> bersifat rahasia, dipakai untuk export riwayat chat ke CSV. Simpan baik-baik, jangan ditempel di kode website.
+      <strong>Catatan penting:</strong>
+      <br>&#8226; Selama backend masih di <code>localhost:3001</code>, chatbot <strong>hanya bisa diakses dari komputer kamu sendiri</strong>. Pengunjung lain tidak bisa menggunakannya. Supaya bisa diakses publik, deploy backend ke VPS/server dengan HTTPS (misal <code>https://chat.domainmu.com</code>), lalu ganti URL di kode script.
+      <br>&#8226; <strong>Export Token</strong> bersifat <strong>RAHASIA</strong>. Dipakai untuk export riwayat chat ke CSV. Simpan baik-baik di tempat aman, <strong>jangan</strong> ditempel di kode website atau dibagikan ke publik.
+      <br>&#8226; <strong>Widget Key</strong> bersifat publik (aman ditempel di kode website). Tapi <strong>Admin Token</strong> dan <strong>Export Token</strong> harus dirahasiakan.
     </div>
   </div>
 
@@ -196,6 +254,52 @@
   </div>
 </div>
 
+<!-- View Script modal -->
+<div class="modal-overlay" id="script-modal">
+  <div class="modal-box">
+    <h3>Kode Embed Website</h3>
+
+    <!-- PIN verification step -->
+    <div id="script-pin-step">
+      <div class="pin-box">
+        <p>Masukkan Admin Token untuk melihat kode embed:</p>
+        <div class="pin-error" id="script-pin-error">Token salah, coba lagi.</div>
+        <input type="password" id="script-pin-input" placeholder="Admin Token">
+        <br>
+        <button class="btn btn-gold btn-sm" onclick="verifyScriptPin()">Verifikasi</button>
+      </div>
+    </div>
+
+    <!-- Script content (shown after verification) -->
+    <div id="script-content-step" style="display:none">
+      <p style="font-size:12px; color:rgba(255,255,255,.5); margin-bottom:12px;">Website: <strong id="script-site-name" style="color:#fff"></strong></p>
+
+      <div class="script-section">
+        <h4>HTML Biasa — tempel sebelum &lt;/body&gt;</h4>
+        <pre id="script-html-code"></pre>
+        <div class="copy-row"><button class="btn btn-gold btn-sm copy-btn" onclick="copyEl('script-html-code')">Salin HTML</button></div>
+      </div>
+
+      <div class="script-section">
+        <h4>Next.js (App Router) — di layout.tsx</h4>
+        <p style="font-size:11px; color:rgba(255,255,255,.4); margin-bottom:6px;">1. Tambahkan import di bagian atas file:</p>
+        <pre id="script-nextjs-import"></pre>
+        <div class="copy-row"><button class="btn btn-gold btn-sm copy-btn" onclick="copyEl('script-nextjs-import')">Salin Import</button></div>
+      </div>
+
+      <div class="script-section">
+        <p style="font-size:11px; color:rgba(255,255,255,.4); margin-bottom:6px;">2. Tempel komponen ini di dalam &lt;body&gt;, sebelum &lt;/body&gt;:</p>
+        <pre id="script-nextjs-code"></pre>
+        <div class="copy-row"><button class="btn btn-gold btn-sm copy-btn" onclick="copyEl('script-nextjs-code')">Salin Komponen</button></div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-outline btn-sm" onclick="closeScriptModal()">Tutup</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const API_BASE = window.location.origin;
 let adminToken = "";
@@ -261,7 +365,7 @@ function loadSites() {
         html += '<td><span class="wk-text" title="Klik untuk salin" onclick="copyText(\'' + wk + '\')">' + wk.slice(0, 8) + '...</span></td>';
         html += '<td>' + badge + '</td>';
         html += '<td style="color:rgba(255,255,255,.4)">' + date + '</td>';
-        html += '<td><button class="btn btn-outline btn-sm" onclick="openEditModal(\'' + s.id + '\')">Edit</button></td>';
+        html += '<td><div class="btn-row"><button class="btn btn-gold btn-sm" onclick="openScriptModal(\'' + s.id + '\')">Script</button><button class="btn btn-outline btn-sm" onclick="openEditModal(\'' + s.id + '\')">Edit</button></div></td>';
         html += '</tr>';
       });
       html += '</tbody></table>';
@@ -371,6 +475,65 @@ function saveEdit() {
     });
 }
 
+let scriptModalSiteId = null;
+
+function openScriptModal(siteId) {
+  scriptModalSiteId = siteId;
+  document.getElementById("script-pin-step").style.display = "block";
+  document.getElementById("script-content-step").style.display = "none";
+  document.getElementById("script-pin-error").style.display = "none";
+  document.getElementById("script-pin-input").value = "";
+  document.getElementById("script-modal").classList.add("open");
+  document.getElementById("script-pin-input").focus();
+}
+
+function closeScriptModal() {
+  scriptModalSiteId = null;
+  document.getElementById("script-modal").classList.remove("open");
+}
+
+function verifyScriptPin() {
+  const pin = document.getElementById("script-pin-input").value.trim();
+  if (!pin) return;
+
+  if (pin !== adminToken) {
+    document.getElementById("script-pin-error").style.display = "block";
+    document.getElementById("script-pin-input").value = "";
+    document.getElementById("script-pin-input").focus();
+    return;
+  }
+
+  fetch(API_BASE + "/api/admin/sites/" + scriptModalSiteId, { headers: { "X-Admin-Token": adminToken } })
+    .then(r => {
+      if (!r.ok) throw new Error("Gagal");
+      return r.json();
+    })
+    .then(site => {
+      const backendUrl = API_BASE;
+      const wk = site.widget_key;
+
+      document.getElementById("script-site-name").textContent = site.name;
+
+      document.getElementById("script-html-code").textContent =
+        '<script\n  src="' + backendUrl + '/widget/chat-widget.js"\n  data-widget-key="' + wk + '"\n  data-api-url="' + backendUrl + '/api/chat"\n></' + 'script>';
+
+      document.getElementById("script-nextjs-import").textContent =
+        'import Script from "next/script";';
+
+      document.getElementById("script-nextjs-code").textContent =
+        '<Script\n  src="' + backendUrl + '/widget/chat-widget.js"\n  data-widget-key="' + wk + '"\n  data-api-url="' + backendUrl + '/api/chat"\n  strategy="afterInteractive"\n/>';
+
+      document.getElementById("script-pin-step").style.display = "none";
+      document.getElementById("script-content-step").style.display = "block";
+    })
+    .catch(err => showToast("Gagal memuat data: " + err.message));
+}
+
+function copyEl(elId) {
+  const text = document.getElementById(elId).textContent;
+  navigator.clipboard.writeText(text).then(() => showToast("Kode disalin!"));
+}
+
 function copyScript() {
   const text = document.getElementById("result-script").textContent;
   navigator.clipboard.writeText(text).then(() => showToast("Kode disalin!"));
@@ -388,6 +551,10 @@ function escapeHtml(str) {
 
 document.getElementById("token-input").addEventListener("keydown", function(e) {
   if (e.key === "Enter") doLogin();
+});
+
+document.getElementById("script-pin-input").addEventListener("keydown", function(e) {
+  if (e.key === "Enter") verifyScriptPin();
 });
 
 (function autoLogin() {
