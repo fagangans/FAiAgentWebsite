@@ -14,15 +14,15 @@
 
 */
 
-import { GeminiChat, clearHistory } from "../../scrape/GeminiChat.js";
+import Ai4Chat from "../../scrape/Ai4Chat.js";
 
 export const info = {
-  name: "Gemini AI",
+  name: "AI4Chat",
 
   menu: ["AI"],
-  case: ["ai", "clearai"],
+  case: ["ai"],
 
-  description: "Tanyakan Apa Saja! (Gemini AI)",
+  description: "Tanyakan Apa Saja!",
   hidden: false,
 
   owner: false,
@@ -32,36 +32,29 @@ export const info = {
   admin: false,
   botAdmin: false,
 
-  allowPrivate: true,
+  allowPrivate: false,
 };
 
-export default async function handler(leni) {
-  const { command, q, LenwyText, LenwyWait, senderJid } = leni;
+export default async function handler(lenwy) {
+  const { command, q, LenwyText, LenwyWait } = lenwy;
 
   switch (command) {
     case "ai":
       {
-        if (!q) return LenwyText("☘️ *Contoh:* .ai Apa itu JavaScript?");
+        if (!q) return LenwyText("☘️ *Contoh:* ai Apa itu JavaScript?");
 
         LenwyWait();
 
         try {
-          const reply = await GeminiChat(q, senderJid);
+          const lenai = await Ai4Chat(q);
 
-          if (!reply) return LenwyText("⚠️ AI Tidak Merespon.");
+          if (!lenai) return LenwyText("⚠️ AI Tidak Merespon.");
 
-          await LenwyText(`*Gemini AI*\n\n${reply}`);
+          await LenwyText(`*Lenwy AI*\n\n${lenai}`);
         } catch (error) {
-          console.error("Error AI:", error.message);
+          console.error("Error AI:", error);
           LenwyText(globalThis.mess.error);
         }
-      }
-      break;
-
-    case "clearai":
-      {
-        clearHistory(senderJid);
-        await LenwyText("🗑️ Riwayat percakapan AI kamu sudah direset.");
       }
       break;
   }

@@ -14,7 +14,7 @@
 
 */
 
-import { GeminiChat } from "../../scrape/GeminiChat.js";
+import axios from "axios";
 
 export const info = {
   name: "Public AI",
@@ -22,7 +22,7 @@ export const info = {
   menu: ["Publicai"],
   case: ["publicai"],
 
-  description: "Public AI (Gemini)",
+  description: "Public AI",
   hidden: false,
 
   owner: false,
@@ -32,28 +32,41 @@ export const info = {
   admin: false,
   botAdmin: false,
 
-  allowPrivate: true,
+  allowPrivate: false,
 };
 
 export default async function handler(leni) {
-  const { command, q, LenwyText, LenwyWait, senderJid } = leni;
+  const {
+    command,
+    q,
+    LenwyText,
+    LenwyWait,
+  } = leni;
 
   switch (command) {
     case "publicai":
       {
-        if (!q) return LenwyText("☘️ *Contoh:* .publicai Apa Fungsi JavaScript");
+        if (!q) return LenwyText("Contoh: .Publicai Apa Fungsi JavaScript");
 
         LenwyWait();
 
         try {
-          const reply = await GeminiChat(q, senderJid);
+          const API_URL = `https://api.fromscratch.web.id/v1/api/ai/publicai?query=${encodeURIComponent(q)}`;
 
-          if (!reply) return LenwyText("⚠️ AI Tidak Merespon.");
+          const { data: response } = await axios.get(API_URL, {
+            timeout: 15000,
+          });
 
-          await LenwyText(`*[+] Gemini AI*\n\n${reply}`);
+          if (!response || response.status !== 200 || !response.data) {
+            return LenwyText("Gagal Mengambil Respon AI");
+          }
+
+          const result = response.data.response || "Tidak Ada Hasil";
+
+          await LenwyText(`*[+] Lenwy PublicAI*\n\n${result}`);
         } catch (error) {
-          console.error("PublicAI Error:", error.message);
-          return LenwyText(globalThis.mess.error);
+          console.error("PublicAI Error:", error);
+          return LenwyText("Terjadi Kesalahan Pada Koneksi API");
         }
       }
       break;
