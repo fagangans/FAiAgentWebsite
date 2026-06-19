@@ -14,6 +14,7 @@ const app = express();
 app.use(cors()); // widget dipasang di domain berbeda-beda, jadi CORS dibuka untuk endpoint publik
 app.use(express.json({ limit: "100kb" }));
 app.use("/widget", express.static(path.join(__dirname, "../../widget")));
+app.use("/admin", express.static(path.join(__dirname, "../../admin")));
 
 app.get("/health", (req, res) => res.json({ status: "ok" }));
 

@@ -39,7 +39,9 @@ adminRouter.post("/sites", requireAdmin, (req, res) => {
 });
 
 adminRouter.get("/sites", requireAdmin, (req, res) => {
-  const sites = db.prepare("SELECT id, name, domain, ai_provider, is_active, created_at FROM sites").all();
+  const sites = db
+    .prepare("SELECT id, name, domain, widget_key, ai_provider, is_active, created_at FROM sites ORDER BY created_at DESC")
+    .all();
   res.json(sites);
 });
 

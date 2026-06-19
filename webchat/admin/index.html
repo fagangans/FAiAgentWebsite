@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Webchat Admin</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: #050505; color: #fff; min-height: 100vh; }
+
+  /* Login */
+  #login-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .login-box { background: #0a0a0a; border: 1px solid rgba(255,255,255,.12); border-radius: 16px; padding: 40px; width: 360px; }
+  .login-box h1 { font-size: 20px; margin-bottom: 24px; background: linear-gradient(180deg, #c9a84c, #9c8033); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .login-box input { width: 100%; padding: 12px; border: 1px solid rgba(255,255,255,.15); border-radius: 8px; background: transparent; color: #fff; font-size: 14px; margin-bottom: 16px; outline: none; }
+  .login-box input:focus { border-color: #c9a84c; }
+  .login-box .login-error { color: #ef4444; font-size: 13px; margin-bottom: 12px; display: none; }
+
+  /* Buttons */
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px; border: none; border-radius: 999px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity .2s; }
+  .btn:hover { opacity: .85; }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .btn-gold { background: linear-gradient(180deg, #c9a84c, #9c8033); color: #050505; }
+  .btn-outline { background: transparent; border: 1px solid rgba(255,255,255,.15); color: #fff; }
+  .btn-sm { padding: 6px 14px; font-size: 12px; }
+
+  /* Dashboard */
+  #dashboard { display: none; max-width: 900px; margin: 0 auto; padding: 32px 20px; }
+  .dash-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; }
+  .dash-header h1 { font-size: 22px; background: linear-gradient(180deg, #c9a84c, #9c8033); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+  /* Form */
+  .form-card { background: #0a0a0a; border: 1px solid rgba(255,255,255,.12); border-radius: 16px; padding: 24px; margin-bottom: 32px; }
+  .form-card h2 { font-size: 16px; margin-bottom: 16px; color: #c9a84c; }
+  .form-row { margin-bottom: 14px; }
+  .form-row label { display: block; font-size: 13px; color: rgba(255,255,255,.6); margin-bottom: 4px; }
+  .form-row input, .form-row textarea { width: 100%; padding: 10px; border: 1px solid rgba(255,255,255,.15); border-radius: 8px; background: transparent; color: #fff; font-size: 14px; outline: none; font-family: inherit; }
+  .form-row textarea { height: 70px; resize: vertical; }
+  .form-row input:focus, .form-row textarea:focus { border-color: #c9a84c; }
+
+  /* Result popup */
+  .result-card { background: #111; border: 1px solid #c9a84c; border-radius: 12px; padding: 20px; margin-top: 16px; display: none; }
+  .result-card h3 { color: #c9a84c; font-size: 14px; margin-bottom: 12px; }
+  .result-card pre { background: #050505; border: 1px solid rgba(255,255,255,.1); border-radius: 8px; padding: 12px; font-size: 12px; overflow-x: auto; color: #e0c77a; white-space: pre-wrap; word-break: break-all; margin-bottom: 8px; }
+  .copy-btn { font-size: 11px; padding: 4px 10px; }
+
+  /* Sites table */
+  .sites-card { background: #0a0a0a; border: 1px solid rgba(255,255,255,.12); border-radius: 16px; padding: 24px; }
+  .sites-card h2 { font-size: 16px; margin-bottom: 16px; color: #c9a84c; }
+  .sites-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .sites-table th { text-align: left; padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,.15); color: rgba(255,255,255,.5); font-weight: 500; }
+  .sites-table td { padding: 10px; border-bottom: 1px solid rgba(255,255,255,.06); }
+  .sites-table tr:hover td { background: rgba(201,168,76,.04); }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+  .badge-active { background: rgba(34,197,94,.15); color: #22c55e; }
+  .badge-inactive { background: rgba(239,68,68,.15); color: #ef4444; }
+  .wk-text { font-family: monospace; font-size: 11px; color: #e0c77a; cursor: pointer; }
+  .wk-text:hover { text-decoration: underline; }
+  .empty-msg { color: rgba(255,255,255,.4); font-size: 14px; text-align: center; padding: 24px; }
+
+  /* Toast */
+  .toast { position: fixed; bottom: 20px; right: 20px; background: #c9a84c; color: #050505; padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; z-index: 9999; opacity: 0; transition: opacity .3s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<!-- Login screen -->
+<div id="login-screen">
+  <div class="login-box">
+    <h1>Webchat Admin</h1>
+    <div class="login-error" id="login-error">Token salah, coba lagi.</div>
+    <input type="password" id="token-input" placeholder="Masukkan Admin Token" autofocus>
+    <button class="btn btn-gold" style="width:100%" onclick="doLogin()">Masuk</button>
+  </div>
+</div>
+
+<!-- Dashboard -->
+<div id="dashboard">
+  <div class="dash-header">
+    <h1>Webchat Admin</h1>
+    <button class="btn btn-outline btn-sm" onclick="doLogout()">Logout</button>
+  </div>
+
+  <!-- Add site form -->
+  <div class="form-card">
+    <h2>Tambah Website Baru</h2>
+    <div class="form-row">
+      <label>Nama Website *</label>
+      <input type="text" id="site-name" placeholder="Contoh: Toko Online Sepatu">
+    </div>
+    <div class="form-row">
+      <label>Domain (opsional)</label>
+      <input type="text" id="site-domain" placeholder="Contoh: tokosepatu.com">
+    </div>
+    <div class="form-row">
+      <label>System Prompt (instruksi karakter AI)</label>
+      <textarea id="site-prompt" placeholder="Contoh: Kamu adalah asisten toko online sepatu. Bantu pelanggan memilih produk dengan ramah."></textarea>
+    </div>
+    <button class="btn btn-gold" id="add-btn" onclick="addSite()">Tambah Website</button>
+
+    <div class="result-card" id="result-card">
+      <h3>Website Berhasil Didaftarkan</h3>
+      <p style="font-size:13px; color:rgba(255,255,255,.6); margin-bottom:10px;">Salin kode di bawah dan tempel sebelum &lt;/body&gt; di website kamu:</p>
+      <pre id="result-script"></pre>
+      <button class="btn btn-gold btn-sm copy-btn" onclick="copyScript()">Salin Kode</button>
+      <p style="font-size:12px; color:rgba(255,255,255,.4); margin-top:10px;">Export Token (simpan, jangan bagikan): <code id="result-export" style="color:#e0c77a;"></code></p>
+    </div>
+  </div>
+
+  <!-- Sites list -->
+  <div class="sites-card">
+    <h2>Website Terdaftar</h2>
+    <div id="sites-list"><div class="empty-msg">Memuat...</div></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API_BASE = window.location.origin;
+let adminToken = "";
+
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2000);
+}
+
+function doLogin() {
+  const input = document.getElementById("token-input");
+  adminToken = input.value.trim();
+  if (!adminToken) return;
+
+  fetch(API_BASE + "/api/admin/sites", { headers: { "X-Admin-Token": adminToken } })
+    .then(r => {
+      if (!r.ok) throw new Error("Unauthorized");
+      return r.json();
+    })
+    .then(() => {
+      sessionStorage.setItem("wc_admin_token", adminToken);
+      document.getElementById("login-screen").style.display = "none";
+      document.getElementById("dashboard").style.display = "block";
+      loadSites();
+    })
+    .catch(() => {
+      document.getElementById("login-error").style.display = "block";
+      input.value = "";
+      input.focus();
+    });
+}
+
+function doLogout() {
+  sessionStorage.removeItem("wc_admin_token");
+  adminToken = "";
+  document.getElementById("dashboard").style.display = "none";
+  document.getElementById("login-screen").style.display = "flex";
+  document.getElementById("token-input").value = "";
+  document.getElementById("login-error").style.display = "none";
+}
+
+function loadSites() {
+  fetch(API_BASE + "/api/admin/sites", { headers: { "X-Admin-Token": adminToken } })
+    .then(r => r.json())
+    .then(sites => {
+      const el = document.getElementById("sites-list");
+      if (!sites.length) {
+        el.innerHTML = '<div class="empty-msg">Belum ada website terdaftar. Tambah yang pertama di atas.</div>';
+        return;
+      }
+      let html = '<table class="sites-table"><thead><tr><th>Nama</th><th>Domain</th><th>Widget Key</th><th>Status</th><th>Dibuat</th></tr></thead><tbody>';
+      sites.forEach(s => {
+        const badge = s.is_active
+          ? '<span class="badge badge-active">Aktif</span>'
+          : '<span class="badge badge-inactive">Nonaktif</span>';
+        const date = new Date(s.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+        const wk = s.widget_key;
+        html += '<tr>';
+        html += '<td>' + escapeHtml(s.name) + '</td>';
+        html += '<td>' + (s.domain ? escapeHtml(s.domain) : '<span style="color:rgba(255,255,255,.3)">-</span>') + '</td>';
+        html += '<td><span class="wk-text" title="Klik untuk salin" onclick="copyText(\'' + wk + '\')">' + wk.slice(0, 8) + '...</span></td>';
+        html += '<td>' + badge + '</td>';
+        html += '<td style="color:rgba(255,255,255,.4)">' + date + '</td>';
+        html += '</tr>';
+      });
+      html += '</tbody></table>';
+      el.innerHTML = html;
+    })
+    .catch(() => {
+      document.getElementById("sites-list").innerHTML = '<div class="empty-msg" style="color:#ef4444;">Gagal memuat data.</div>';
+    });
+}
+
+function addSite() {
+  const name = document.getElementById("site-name").value.trim();
+  const domain = document.getElementById("site-domain").value.trim();
+  const systemPrompt = document.getElementById("site-prompt").value.trim();
+
+  if (!name) { showToast("Nama website wajib diisi"); return; }
+
+  const btn = document.getElementById("add-btn");
+  btn.disabled = true;
+  btn.textContent = "Menambahkan...";
+
+  fetch(API_BASE + "/api/admin/sites", {
+    method: "POST",
+    headers: { "X-Admin-Token": adminToken, "Content-Type": "application/json" },
+    body: JSON.stringify({ name, domain: domain || undefined, systemPrompt: systemPrompt || undefined })
+  })
+    .then(r => {
+      if (!r.ok) return r.json().then(d => { throw new Error(d.error); });
+      return r.json();
+    })
+    .then(data => {
+      const backendUrl = API_BASE;
+      const script = '<script src="' + backendUrl + '/widget/chat-widget.js" data-widget-key="' + data.widgetKey + '" data-api-url="' + backendUrl + '/api/chat"></' + 'script>';
+      document.getElementById("result-script").textContent = script;
+      document.getElementById("result-export").textContent = data.exportToken;
+      document.getElementById("result-card").style.display = "block";
+
+      document.getElementById("site-name").value = "";
+      document.getElementById("site-domain").value = "";
+      document.getElementById("site-prompt").value = "";
+
+      loadSites();
+      showToast("Website berhasil ditambahkan");
+    })
+    .catch(err => {
+      showToast("Gagal: " + err.message);
+    })
+    .finally(() => {
+      btn.disabled = false;
+      btn.textContent = "Tambah Website";
+    });
+}
+
+function copyScript() {
+  const text = document.getElementById("result-script").textContent;
+  navigator.clipboard.writeText(text).then(() => showToast("Kode disalin!"));
+}
+
+function copyText(text) {
+  navigator.clipboard.writeText(text).then(() => showToast("Widget key disalin!"));
+}
+
+function escapeHtml(str) {
+  const d = document.createElement("div");
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+document.getElementById("token-input").addEventListener("keydown", function(e) {
+  if (e.key === "Enter") doLogin();
+});
+
+(function autoLogin() {
+  const saved = sessionStorage.getItem("wc_admin_token");
+  if (saved) {
+    adminToken = saved;
+    document.getElementById("token-input").value = saved;
+    doLogin();
+  }
+})();
+</script>
+</body>
+</html>
