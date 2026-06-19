@@ -14,17 +14,15 @@
 
 */
 
-// Import Dependency (Jika Ada)
-import axios from "axios";
+import { GeminiChat } from "../../scrape/GeminiChat.js";
 
-// Metadata
 export const info = {
   name: "Public AI",
 
   menu: ["Publicai"],
   case: ["publicai"],
 
-  description: "Public AI",
+  description: "Public AI (Gemini)",
   hidden: false,
 
   owner: false,
@@ -34,86 +32,28 @@ export const info = {
   admin: false,
   botAdmin: false,
 
-  allowPrivate: false,
+  allowPrivate: true,
 };
 
-// Handler Utama
 export default async function handler(leni) {
-  const {
-    command,
-    args,
-    q,
-    lenwy,
-    m,
-    msg,
-    len,
-    replyJid,
-    lenwyreply,
-    LenwyText,
-    LenwyWait,
-    LenwyVideo,
-    LenwyImage,
-    LenwyAudio,
-    LenwyFile,
-    isGroup,
-    isAdmin,
-    isBotAdmin,
-    isPremium,
-    isLenwy,
-  } = leni;
-
-  //   curl -X GET "https://api.fromscratch.web.id/v1/api/ai/publicai?query=Fungsi+Nodejs"
-
-  //   {
-  //   "status": 200,
-  //   "creator": "Lenwy",
-  //   "data": {
-  //     "query": "Fungsi Nodejs",
-  //     "response": "Node.js adalah sebuah platform runtime yang memungkinkan Anda menjalankan JavaScript di luar browser. Fungsi utama Node.js adalah sebagai berikut:\n\n1. **Asynchronous I/O**: Node.js menggunakan model I/O asynchronous, yang memungkinkan aplikasi merespons permintaan dengan cepat dan efisien tanpa memblokir proses.\n\n2. **Non-blocking I/O**: Node.js memungkinkan Anda menulis aplikasi yang tidak memblokir proses dengan menunggu operasi I/O selesai. Ini memungkinkan aplikasi merespons permintaan lain sambil menunggu operasi I/O selesai.\n\n3. **Single-threaded**: Node.js menggunakan hanya satu thread untuk menjalankan aplikasi, yang membuatnya lebih ringan dan lebih efisien daripada aplikasi yang menggunakan banyak thread.\n\n",
-  //     "length": {
-  //       "query": 13,
-  //       "response": 726
-  //     },
-  //     "timestamp": 1777476058536
-  //   },
-  //   "source": "api.fromscratch.web.id"
-  // }
+  const { command, q, LenwyText, LenwyWait, senderJid } = leni;
 
   switch (command) {
     case "publicai":
       {
-        // Logic Di Sini
+        if (!q) return LenwyText("☘️ *Contoh:* .publicai Apa Fungsi JavaScript");
 
-        // Validasi
-        if (!q) return LenwyText("Contoh: .Publicai Apa Fungsi JavaScript");
-
-        // Loading
         LenwyWait();
 
-        // Ambil Data
         try {
-          const API_URL = `https://api.fromscratch.web.id/v1/api/ai/publicai?query=${encodeURIComponent(q)}`;
+          const reply = await GeminiChat(q, senderJid);
 
-          const { data: response } = await axios.get(API_URL, {
-            timeout: 15000,
-          });
+          if (!reply) return LenwyText("⚠️ AI Tidak Merespon.");
 
-          // Validasi Error
-          if (!response || response.status !== 200 || !response.data) {
-            return LenwyText("Gagal Mengambil Respon AI");
-          }
-
-          // Hasil API
-          const result = response.data.response || "Tidak Ada Hasil";
-
-          let reply = `*[+] Lenwy PublicAI*\n\n`;
-          reply += `${result}`;
-
-          await LenwyText(reply);
+          await LenwyText(`*[+] Gemini AI*\n\n${reply}`);
         } catch (error) {
-          // Error Log
-          console.error("PublicAI Error:", error);
-          return LenwyText("Terjadi Kesalahan Pada Koneksi API");
+          console.error("PublicAI Error:", error.message);
+          return LenwyText(globalThis.mess.error);
         }
       }
       break;

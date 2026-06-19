@@ -14,7 +14,7 @@
 
 */
 
-import axios from "axios";
+import { GeminiChat } from "../../scrape/GeminiChat.js";
 
 export const info = {
   name: "WebPilot AI",
@@ -22,7 +22,7 @@ export const info = {
   menu: ["Webpilot"],
   case: ["wp", "webpilot"],
 
-  description: "AI Web Search menggunakan WebPilot",
+  description: "AI Chat menggunakan Gemini",
   hidden: false,
 
   owner: false,
@@ -35,39 +35,25 @@ export const info = {
   allowPrivate: true,
 };
 
-export default async function handler(lenwy) {
-  const { command, q, LenwyText, LenwyWait } = lenwy;
+export default async function handler(leni) {
+  const { command, q, LenwyText, LenwyWait, senderJid } = leni;
 
   switch (command) {
     case "wp":
     case "webpilot":
       {
-        if (!q) return LenwyText("☘️ *Contoh:* webpilot Apa Itu Sc Bot Lenwy");
+        if (!q) return LenwyText("☘️ *Contoh:* .webpilot Apa itu AI?");
 
         LenwyWait();
 
         try {
-          const encodedQuery = encodeURIComponent(q);
-          const API_URL = `https://api.fromscratch.web.id/v1/api/ai/webpilot/details?query=${encodedQuery}`;
+          const reply = await GeminiChat(q, senderJid);
 
-          const { data: response } = await axios.get(API_URL);
+          if (!reply) return LenwyText("⚠️ AI Tidak Merespon.");
 
-          if (response.status !== 200) {
-            return LenwyText(
-              `❌ Gagal mengambil data WebPilot.\nPesan: ${
-                response.message || "Terjadi kesalahan API."
-              }`,
-            );
-          }
-
-          const result = response.data;
-
-          let reply = `🌐 *Lenwy WebPilot (AI Search)*\n\n`;
-          reply += `${result.response}`;
-
-          await LenwyText(reply);
+          await LenwyText(`🌐 *Gemini AI*\n\n${reply}`);
         } catch (error) {
-          console.error("WebPilot Error:", error);
+          console.error("WebPilot Error:", error.message);
           LenwyText(globalThis.mess.error);
         }
       }
