@@ -34,9 +34,10 @@
   .form-card h2 { font-size: 16px; margin-bottom: 16px; color: #c9a84c; }
   .form-row { margin-bottom: 14px; }
   .form-row label { display: block; font-size: 13px; color: rgba(255,255,255,.6); margin-bottom: 4px; }
-  .form-row input, .form-row textarea { width: 100%; padding: 10px; border: 1px solid rgba(255,255,255,.15); border-radius: 8px; background: transparent; color: #fff; font-size: 14px; outline: none; font-family: inherit; }
+  .form-row input, .form-row textarea, .form-row select { width: 100%; padding: 10px; border: 1px solid rgba(255,255,255,.15); border-radius: 8px; background: transparent; color: #fff; font-size: 14px; outline: none; font-family: inherit; }
   .form-row textarea { height: 70px; resize: vertical; }
-  .form-row input:focus, .form-row textarea:focus { border-color: #c9a84c; }
+  .form-row input:focus, .form-row textarea:focus, .form-row select:focus { border-color: #c9a84c; }
+  .form-row select option { background: #0a0a0a; color: #fff; }
 
   /* Result popup */
   .result-card { background: #111; border: 1px solid #c9a84c; border-radius: 12px; padding: 20px; margin-top: 16px; display: none; }
@@ -193,6 +194,14 @@
       <label>System Prompt (instruksi karakter AI)</label>
       <textarea id="site-prompt" placeholder="Contoh: Kamu adalah asisten toko online sepatu. Bantu pelanggan memilih produk dengan ramah."></textarea>
     </div>
+    <div class="form-row">
+      <label>AI Provider</label>
+      <select id="site-provider">
+        <option value="gemini">Gemini (default)</option>
+        <option value="qwen">Qwen 3.5 Flash (termurah, via OpenRouter)</option>
+        <option value="claude">Claude</option>
+      </select>
+    </div>
     <button class="btn btn-gold" id="add-btn" onclick="addSite()">Tambah Website</button>
 
     <div class="result-card" id="result-card">
@@ -246,6 +255,14 @@
     <div class="form-row">
       <label>System Prompt (instruksi karakter AI)</label>
       <textarea id="edit-prompt" style="height:120px"></textarea>
+    </div>
+    <div class="form-row">
+      <label>AI Provider</label>
+      <select id="edit-provider">
+        <option value="gemini">Gemini</option>
+        <option value="qwen">Qwen 3.5 Flash (termurah, via OpenRouter)</option>
+        <option value="claude">Claude</option>
+      </select>
     </div>
     <div class="modal-actions">
       <button class="btn btn-outline btn-sm" onclick="closeEditModal()">Batal</button>
@@ -352,7 +369,7 @@ function loadSites() {
         el.innerHTML = '<div class="empty-msg">Belum ada website terdaftar. Tambah yang pertama di atas.</div>';
         return;
       }
-      let html = '<table class="sites-table"><thead><tr><th>Nama</th><th>Domain</th><th>Widget Key</th><th>Status</th><th>Dibuat</th><th></th></tr></thead><tbody>';
+      let html = '<table class="sites-table"><thead><tr><th>Nama</th><th>Domain</th><th>Widget Key</th><th>Provider</th><th>Status</th><th>Dibuat</th><th></th></tr></thead><tbody>';
       sites.forEach(s => {
         const badge = s.is_active
           ? '<span class="badge badge-active">Aktif</span>'
@@ -363,6 +380,7 @@ function loadSites() {
         html += '<td>' + escapeHtml(s.name) + '</td>';
         html += '<td>' + (s.domain ? escapeHtml(s.domain) : '<span style="color:rgba(255,255,255,.3)">-</span>') + '</td>';
         html += '<td><span class="wk-text" title="Klik untuk salin" onclick="copyText(\'' + wk + '\')">' + wk.slice(0, 8) + '...</span></td>';
+        html += '<td style="color:rgba(255,255,255,.5)">' + escapeHtml(s.ai_provider || "gemini") + '</td>';
         html += '<td>' + badge + '</td>';
         html += '<td style="color:rgba(255,255,255,.4)">' + date + '</td>';
         html += '<td><div class="btn-row"><button class="btn btn-gold btn-sm" onclick="openScriptModal(\'' + s.id + '\')">Script</button><button class="btn btn-outline btn-sm" onclick="openEditModal(\'' + s.id + '\')">Edit</button></div></td>';
@@ -387,10 +405,12 @@ function addSite() {
   btn.disabled = true;
   btn.textContent = "Menambahkan...";
 
+  const aiProvider = document.getElementById("site-provider").value;
+
   fetch(API_BASE + "/api/admin/sites", {
     method: "POST",
     headers: { "X-Admin-Token": adminToken, "Content-Type": "application/json" },
-    body: JSON.stringify({ name, domain: domain || undefined, systemPrompt: systemPrompt || undefined })
+    body: JSON.stringify({ name, domain: domain || undefined, systemPrompt: systemPrompt || undefined, aiProvider })
   })
     .then(r => {
       if (!r.ok) return r.json().then(d => { throw new Error(d.error); });
@@ -406,6 +426,7 @@ function addSite() {
       document.getElementById("site-name").value = "";
       document.getElementById("site-domain").value = "";
       document.getElementById("site-prompt").value = "";
+      document.getElementById("site-provider").value = "gemini";
 
       loadSites();
       showToast("Website berhasil ditambahkan");
@@ -432,6 +453,7 @@ function openEditModal(siteId) {
       document.getElementById("edit-name").value = site.name || "";
       document.getElementById("edit-domain").value = site.domain || "";
       document.getElementById("edit-prompt").value = site.system_prompt || "";
+      document.getElementById("edit-provider").value = site.ai_provider || "gemini";
       document.getElementById("edit-modal").classList.add("open");
     })
     .catch(err => showToast("Gagal: " + err.message));
@@ -447,6 +469,7 @@ function saveEdit() {
   const name = document.getElementById("edit-name").value.trim();
   const domain = document.getElementById("edit-domain").value.trim();
   const systemPrompt = document.getElementById("edit-prompt").value.trim();
+  const aiProvider = document.getElementById("edit-provider").value;
 
   if (!name) { showToast("Nama website wajib diisi"); return; }
 
@@ -457,7 +480,7 @@ function saveEdit() {
   fetch(API_BASE + "/api/admin/sites/" + editingSiteId, {
     method: "PATCH",
     headers: { "X-Admin-Token": adminToken, "Content-Type": "application/json" },
-    body: JSON.stringify({ name, domain, systemPrompt })
+    body: JSON.stringify({ name, domain, systemPrompt, aiProvider })
   })
     .then(r => {
       if (!r.ok) return r.json().then(d => { throw new Error(d.error); });

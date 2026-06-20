@@ -57,13 +57,14 @@ adminRouter.patch("/sites/:id", requireAdmin, (req, res) => {
   const site = db.prepare("SELECT id FROM sites WHERE id = ?").get(req.params.id);
   if (!site) return res.status(404).json({ error: "Website tidak ditemukan" });
 
-  const { name, domain, systemPrompt, isActive } = req.body;
+  const { name, domain, systemPrompt, aiProvider, isActive } = req.body;
   const fields = [];
   const values = [];
 
   if (name !== undefined) { fields.push("name = ?"); values.push(name); }
   if (domain !== undefined) { fields.push("domain = ?"); values.push(domain || null); }
   if (systemPrompt !== undefined) { fields.push("system_prompt = ?"); values.push(systemPrompt); }
+  if (aiProvider !== undefined) { fields.push("ai_provider = ?"); values.push(aiProvider); }
   if (isActive !== undefined) { fields.push("is_active = ?"); values.push(isActive ? 1 : 0); }
 
   if (!fields.length) return res.status(400).json({ error: "Tidak ada field yang diubah" });
