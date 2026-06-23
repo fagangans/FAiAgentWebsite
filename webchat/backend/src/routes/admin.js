@@ -1,17 +1,23 @@
 import { Router } from "express";
 import { v4 as uuid } from "uuid";
 import db from "../db/client.js";
+import { hashPassword } from "../auth/password.js";
+import { verifyToken } from "../auth/jwt.js";
 
 export const adminRouter = Router();
 
-// Dilindungi ADMIN_TOKEN (Step 8 akan diperkuat). Dipakai untuk mendaftarkan website klien baru
-// tanpa perlu ubah kode - inilah yang membuat backend ini bisa dipakai sebagai template multi-website.
+// Dilindungi ADMIN_TOKEN (cara lama, dipakai script/curl) ATAU JWT role admin (dashboard baru).
+// Dipakai untuk mendaftarkan website klien baru tanpa perlu ubah kode.
 function requireAdmin(req, res, next) {
-  const token = req.headers["x-admin-token"];
-  if (!process.env.ADMIN_TOKEN || token !== process.env.ADMIN_TOKEN) {
-    return res.status(403).json({ error: "Unauthorized" });
-  }
-  next();
+  const legacyToken = req.headers["x-admin-token"];
+  if (process.env.ADMIN_TOKEN && legacyToken === process.env.ADMIN_TOKEN) return next();
+
+  const authHeader = req.headers["authorization"] || "";
+  const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  const payload = bearer && verifyToken(bearer);
+  if (payload?.role === "admin") return next();
+
+  return res.status(403).json({ error: "Unauthorized" });
 }
 
 adminRouter.post("/sites", requireAdmin, (req, res) => {
@@ -47,7 +53,11 @@ adminRouter.get("/sites", requireAdmin, (req, res) => {
 
 adminRouter.get("/sites/:id", requireAdmin, (req, res) => {
   const site = db
-    .prepare("SELECT id, name, domain, widget_key, system_prompt, ai_provider, is_active, created_at FROM sites WHERE id = ?")
+    .prepare(
+      `SELECT id, name, domain, widget_key, system_prompt, ai_provider, widget_color, widget_position,
+              widget_greeting, is_active, created_at
+       FROM sites WHERE id = ?`,
+    )
     .get(req.params.id);
   if (!site) return res.status(404).json({ error: "Website tidak ditemukan" });
   res.json(site);
@@ -71,6 +81,56 @@ adminRouter.patch("/sites/:id", requireAdmin, (req, res) => {
 
   db.prepare(`UPDATE sites SET ${fields.join(", ")} WHERE id = ?`).run(...values, req.params.id);
 
+  res.json({ ok: true });
+});
+
+// Akun login klien - sengaja dipisah dari /sites supaya hanya admin yang bisa buat/reset,
+// klien sendiri tidak punya endpoint untuk mengubah username/password-nya.
+adminRouter.get("/sites/:id/account", requireAdmin, (req, res) => {
+  const account = db
+    .prepare("SELECT id, username, created_at FROM users WHERE site_id = ? AND role = 'client'")
+    .get(req.params.id);
+  res.json(account || null);
+});
+
+adminRouter.post("/sites/:id/account", requireAdmin, (req, res) => {
+  const site = db.prepare("SELECT id FROM sites WHERE id = ?").get(req.params.id);
+  if (!site) return res.status(404).json({ error: "Website tidak ditemukan" });
+
+  const { username, password } = req.body;
+  if (!username || !password) return res.status(400).json({ error: "Username dan password wajib diisi" });
+
+  const usernameTaken = db.prepare("SELECT id FROM users WHERE username = ?").get(username);
+  if (usernameTaken) return res.status(409).json({ error: "Username sudah dipakai" });
+
+  const existingAccount = db
+    .prepare("SELECT id FROM users WHERE site_id = ? AND role = 'client'")
+    .get(site.id);
+  if (existingAccount) return res.status(409).json({ error: "Website ini sudah punya akun klien" });
+
+  const id = uuid();
+  db.prepare(
+    "INSERT INTO users (id, username, password_hash, role, site_id) VALUES (?, ?, ?, 'client', ?)",
+  ).run(id, username, hashPassword(password), site.id);
+
+  res.json({ ok: true, id, username });
+});
+
+adminRouter.patch("/sites/:id/account", requireAdmin, (req, res) => {
+  const account = db
+    .prepare("SELECT id FROM users WHERE site_id = ? AND role = 'client'")
+    .get(req.params.id);
+  if (!account) return res.status(404).json({ error: "Akun klien belum dibuat" });
+
+  const { password } = req.body;
+  if (!password) return res.status(400).json({ error: "Password baru wajib diisi" });
+
+  db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(hashPassword(password), account.id);
+  res.json({ ok: true });
+});
+
+adminRouter.delete("/sites/:id/account", requireAdmin, (req, res) => {
+  db.prepare("DELETE FROM users WHERE site_id = ? AND role = 'client'").run(req.params.id);
   res.json({ ok: true });
 });
 

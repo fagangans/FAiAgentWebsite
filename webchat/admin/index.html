@@ -264,6 +264,27 @@
         <option value="claude">Claude</option>
       </select>
     </div>
+
+    <div class="script-section" style="margin-top:20px; border-top:1px solid rgba(255,255,255,.1); padding-top:16px;">
+      <h4>Akun Login Klien</h4>
+      <p class="guide-sub" style="margin-bottom:10px;">Klien pakai akun ini untuk login ke dashboard mereka sendiri (atur prompt bisnis, kustomisasi widget, lihat inbox CRM). Klien tidak bisa melihat kode embed.</p>
+      <div id="edit-account-existing" style="display:none; margin-bottom:10px; font-size:13px; color:rgba(255,255,255,.7);">
+        Username aktif: <strong id="edit-account-username" style="color:#fff"></strong>
+      </div>
+      <div class="form-row">
+        <label>Username</label>
+        <input type="text" id="edit-account-username-input" placeholder="username klien">
+      </div>
+      <div class="form-row">
+        <label>Password <span id="edit-account-pw-hint" style="color:rgba(255,255,255,.4)"></span></label>
+        <input type="password" id="edit-account-password-input" placeholder="Kosongkan jika tidak ingin diubah">
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-gold btn-sm" id="edit-account-save-btn" onclick="saveClientAccount()">Simpan Akun</button>
+        <button class="btn btn-outline btn-sm" id="edit-account-delete-btn" style="display:none; border-color:#ef4444; color:#ef4444;" onclick="deleteClientAccount()">Hapus Akun</button>
+      </div>
+    </div>
+
     <div class="modal-actions">
       <button class="btn btn-outline btn-sm" onclick="closeEditModal()">Batal</button>
       <button class="btn btn-gold btn-sm" id="edit-save-btn" onclick="saveEdit()">Simpan</button>
@@ -455,6 +476,7 @@ function openEditModal(siteId) {
       document.getElementById("edit-prompt").value = site.system_prompt || "";
       document.getElementById("edit-provider").value = site.ai_provider || "gemini";
       document.getElementById("edit-modal").classList.add("open");
+      loadClientAccount(siteId);
     })
     .catch(err => showToast("Gagal: " + err.message));
 }
@@ -462,6 +484,76 @@ function openEditModal(siteId) {
 function closeEditModal() {
   editingSiteId = null;
   document.getElementById("edit-modal").classList.remove("open");
+}
+
+function loadClientAccount(siteId) {
+  document.getElementById("edit-account-username-input").value = "";
+  document.getElementById("edit-account-password-input").value = "";
+  fetch(API_BASE + "/api/admin/sites/" + siteId + "/account", { headers: { "X-Admin-Token": adminToken } })
+    .then(r => r.json())
+    .then(account => {
+      if (account) {
+        document.getElementById("edit-account-existing").style.display = "block";
+        document.getElementById("edit-account-username").textContent = account.username;
+        document.getElementById("edit-account-username-input").value = account.username;
+        document.getElementById("edit-account-username-input").disabled = true;
+        document.getElementById("edit-account-pw-hint").textContent = "(kosongkan jika tidak ingin diubah)";
+        document.getElementById("edit-account-delete-btn").style.display = "inline-flex";
+      } else {
+        document.getElementById("edit-account-existing").style.display = "none";
+        document.getElementById("edit-account-username-input").disabled = false;
+        document.getElementById("edit-account-pw-hint").textContent = "";
+        document.getElementById("edit-account-delete-btn").style.display = "none";
+      }
+    })
+    .catch(() => {});
+}
+
+function saveClientAccount() {
+  if (!editingSiteId) return;
+  const username = document.getElementById("edit-account-username-input").value.trim();
+  const password = document.getElementById("edit-account-password-input").value;
+  const hasExisting = document.getElementById("edit-account-existing").style.display === "block";
+
+  const btn = document.getElementById("edit-account-save-btn");
+  btn.disabled = true;
+
+  if (hasExisting) {
+    if (!password) { showToast("Isi password baru untuk mengubah akun"); btn.disabled = false; return; }
+    fetch(API_BASE + "/api/admin/sites/" + editingSiteId + "/account", {
+      method: "PATCH",
+      headers: { "X-Admin-Token": adminToken, "Content-Type": "application/json" },
+      body: JSON.stringify({ password })
+    })
+      .then(r => { if (!r.ok) return r.json().then(d => { throw new Error(d.error); }); return r.json(); })
+      .then(() => { showToast("Password akun klien diperbarui"); document.getElementById("edit-account-password-input").value = ""; })
+      .catch(err => showToast("Gagal: " + err.message))
+      .finally(() => { btn.disabled = false; });
+  } else {
+    if (!username || !password) { showToast("Username dan password wajib diisi"); btn.disabled = false; return; }
+    fetch(API_BASE + "/api/admin/sites/" + editingSiteId + "/account", {
+      method: "POST",
+      headers: { "X-Admin-Token": adminToken, "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password })
+    })
+      .then(r => { if (!r.ok) return r.json().then(d => { throw new Error(d.error); }); return r.json(); })
+      .then(() => { showToast("Akun klien dibuat"); loadClientAccount(editingSiteId); })
+      .catch(err => showToast("Gagal: " + err.message))
+      .finally(() => { btn.disabled = false; });
+  }
+}
+
+function deleteClientAccount() {
+  if (!editingSiteId) return;
+  if (!confirm("Hapus akun klien ini? Klien tidak akan bisa login lagi sampai dibuatkan akun baru.")) return;
+
+  fetch(API_BASE + "/api/admin/sites/" + editingSiteId + "/account", {
+    method: "DELETE",
+    headers: { "X-Admin-Token": adminToken }
+  })
+    .then(r => { if (!r.ok) throw new Error("Gagal menghapus akun"); return r.json(); })
+    .then(() => { showToast("Akun klien dihapus"); loadClientAccount(editingSiteId); })
+    .catch(err => showToast("Gagal: " + err.message));
 }
 
 function saveEdit() {
