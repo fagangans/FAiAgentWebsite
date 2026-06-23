@@ -51,7 +51,22 @@ CREATE TABLE IF NOT EXISTS usage_log (
   created_at      TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Lead CRM: dibuat otomatis saat ada pesan penting di suatu percakapan.
+-- Satu percakapan maksimal punya satu lead (kontak/status digabung di sini).
+CREATE TABLE IF NOT EXISTS leads (
+  id              TEXT PRIMARY KEY,
+  site_id         TEXT NOT NULL REFERENCES sites(id),
+  conversation_id TEXT NOT NULL UNIQUE REFERENCES conversations(id),
+  contact_phone   TEXT,
+  contact_email   TEXT,
+  status          TEXT NOT NULL DEFAULT 'baru', -- 'baru' | 'dihubungi' | 'selesai'
+  notes           TEXT,
+  created_at      TEXT DEFAULT CURRENT_TIMESTAMP,
+  updated_at      TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX IF NOT EXISTS idx_conversations_site ON conversations(site_id);
 CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);
 CREATE INDEX IF NOT EXISTS idx_usage_site ON usage_log(site_id);
 CREATE INDEX IF NOT EXISTS idx_users_site ON users(site_id);
+CREATE INDEX IF NOT EXISTS idx_leads_site ON leads(site_id);

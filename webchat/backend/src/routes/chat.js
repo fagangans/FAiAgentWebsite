@@ -4,7 +4,7 @@ import db from "../db/client.js";
 import { resolveSite } from "../middleware/resolveSite.js";
 import { rateLimit } from "../middleware/rateLimit.js";
 import { getProvider } from "../providers/index.js";
-import { isImportant } from "../utils/important.js";
+import { isImportant, extractContact } from "../utils/important.js";
 
 export const chatRouter = Router();
 
@@ -24,6 +24,30 @@ function stripMarkdown(text) {
     .replace(/^#{1,6}\s+/gm, "")
     .replace(/^[-*]\s+/gm, "")
     .trim();
+}
+
+// Bikin/lengkapi lead CRM otomatis saat ada pesan penting - satu lead per percakapan,
+// kontak yang sudah terisi tidak ditimpa kalau pesan berikutnya tidak membawa kontak baru.
+function upsertLead(siteId, conversationId, message) {
+  const { phone, email } = extractContact(message);
+  const existing = db
+    .prepare("SELECT id, contact_phone, contact_email FROM leads WHERE conversation_id = ?")
+    .get(conversationId);
+
+  if (existing) {
+    const newPhone = existing.contact_phone || phone;
+    const newEmail = existing.contact_email || email;
+    if (newPhone !== existing.contact_phone || newEmail !== existing.contact_email) {
+      db.prepare(
+        "UPDATE leads SET contact_phone = ?, contact_email = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+      ).run(newPhone, newEmail, existing.id);
+    }
+    return;
+  }
+
+  db.prepare(
+    "INSERT INTO leads (id, site_id, conversation_id, contact_phone, contact_email, status) VALUES (?, ?, ?, ?, ?, 'baru')",
+  ).run(uuid(), siteId, conversationId, phone, email);
 }
 
 // Dipanggil widget saat dimuat di website klien, untuk ambil warna/posisi/sapaan
@@ -78,11 +102,16 @@ chatRouter.post("/chat", resolveSite, rateLimit, async (req, res) => {
     });
     const reply = stripMarkdown(rawReply);
 
+    const important = isImportant(message);
     const insertMessage = db.prepare(
       "INSERT INTO messages (id, conversation_id, role, content, is_important) VALUES (?, ?, ?, ?, ?)",
     );
-    insertMessage.run(uuid(), conversation.id, "user", message, isImportant(message) ? 1 : 0);
+    insertMessage.run(uuid(), conversation.id, "user", message, important ? 1 : 0);
     insertMessage.run(uuid(), conversation.id, "assistant", reply, 0);
+
+    if (important) {
+      upsertLead(site.id, conversation.id, message);
+    }
 
     db.prepare(
       "INSERT INTO usage_log (id, site_id, tokens_in, tokens_out) VALUES (?, ?, ?, ?)",

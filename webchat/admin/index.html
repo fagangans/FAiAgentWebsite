@@ -236,6 +236,12 @@
     <h2>Website Terdaftar</h2>
     <div id="sites-list"><div class="empty-msg">Memuat...</div></div>
   </div>
+
+  <!-- Token usage -->
+  <div class="sites-card" style="margin-top:24px;">
+    <h2>Pemakaian Token AI</h2>
+    <div id="usage-list"><div class="empty-msg">Memuat...</div></div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -364,6 +370,7 @@ function doLogin() {
       document.getElementById("login-screen").style.display = "none";
       document.getElementById("dashboard").style.display = "block";
       loadSites();
+      loadUsage();
     })
     .catch(() => {
       document.getElementById("login-error").style.display = "block";
@@ -412,6 +419,28 @@ function loadSites() {
     })
     .catch(() => {
       document.getElementById("sites-list").innerHTML = '<div class="empty-msg" style="color:#ef4444;">Gagal memuat data.</div>';
+    });
+}
+
+function loadUsage() {
+  fetch(API_BASE + "/api/admin/usage", { headers: { "X-Admin-Token": adminToken } })
+    .then(r => r.json())
+    .then(data => {
+      const el = document.getElementById("usage-list");
+      if (!data.sites.length) {
+        el.innerHTML = '<div class="empty-msg">Belum ada data pemakaian.</div>';
+        return;
+      }
+      let html = '<table class="sites-table"><thead><tr><th>Website</th><th>Token Masuk</th><th>Token Keluar</th></tr></thead><tbody>';
+      data.sites.forEach(s => {
+        html += '<tr><td>' + escapeHtml(s.name) + '</td><td>' + s.tokens_in.toLocaleString("id-ID") + '</td><td>' + s.tokens_out.toLocaleString("id-ID") + '</td></tr>';
+      });
+      html += '<tr style="font-weight:700;"><td>Total</td><td>' + data.total.tokens_in.toLocaleString("id-ID") + '</td><td>' + data.total.tokens_out.toLocaleString("id-ID") + '</td></tr>';
+      html += '</tbody></table>';
+      el.innerHTML = html;
+    })
+    .catch(() => {
+      document.getElementById("usage-list").innerHTML = '<div class="empty-msg" style="color:#ef4444;">Gagal memuat data pemakaian.</div>';
     });
 }
 

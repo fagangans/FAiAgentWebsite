@@ -30,7 +30,7 @@
   .dash-header h1 { font-size: 22px; color: #ff5500; }
   .dash-header span { font-size: 13px; color: #8a6a52; }
 
-  .tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
   .tab-btn { padding: 9px 18px; border-radius: 999px; border: 1px solid #f0d9c4; background: #fff; color: #6b5340; font-size: 13px; font-weight: 600; cursor: pointer; }
   .tab-btn.active { background: #ff5500; color: #fff; border-color: #ff5500; }
 
@@ -39,9 +39,9 @@
 
   .form-row { margin-bottom: 14px; }
   .form-row label { display: block; font-size: 13px; color: #6b5340; margin-bottom: 4px; }
-  .form-row input, .form-row textarea { width: 100%; padding: 10px; border: 1px solid #f0d9c4; border-radius: 8px; background: #fff; color: #2b2b2b; font-size: 14px; outline: none; font-family: inherit; }
+  .form-row input, .form-row textarea, .form-row select { width: 100%; padding: 10px; border: 1px solid #f0d9c4; border-radius: 8px; background: #fff; color: #2b2b2b; font-size: 14px; outline: none; font-family: inherit; }
   .form-row textarea { height: 120px; resize: vertical; }
-  .form-row input:focus, .form-row textarea:focus { border-color: #ff7a00; }
+  .form-row input:focus, .form-row textarea:focus, .form-row select:focus { border-color: #ff7a00; }
   .form-row input[type="color"] { padding: 4px; height: 42px; cursor: pointer; }
   .row-2 { display: flex; gap: 16px; }
   .row-2 > div { flex: 1; }
@@ -52,7 +52,7 @@
   .panel { display: none; }
   .panel.active { display: block; }
 
-  /* Conversations / CRM */
+  /* Conversations */
   .conv-list { display: flex; flex-direction: column; gap: 8px; }
   .conv-item { padding: 12px 14px; border-radius: 10px; border: 1px solid #f3e3d3; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
   .conv-item:hover { background: #fff8f0; }
@@ -62,7 +62,38 @@
   .badge-important { background: #ff5500; color: #fff; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px; flex-shrink: 0; }
   .empty-msg { color: #a08a76; font-size: 14px; text-align: center; padding: 24px; }
 
-  /* Messages modal */
+  /* CRM leads */
+  .status-filters { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .filter-pill { padding: 7px 16px; border-radius: 999px; border: 1px solid #f0d9c4; background: #fff; color: #6b5340; font-size: 12px; font-weight: 600; cursor: pointer; }
+  .filter-pill.active { background: #ff5500; color: #fff; border-color: #ff5500; }
+
+  .lead-list { display: flex; flex-direction: column; gap: 10px; }
+  .lead-card { padding: 14px 16px; border-radius: 12px; border: 1px solid #f3e3d3; cursor: pointer; }
+  .lead-card:hover { background: #fff8f0; }
+  .lead-card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .lead-date { font-size: 11px; color: #a08a76; }
+  .lead-contact { font-size: 13px; color: #5a4a3c; margin-bottom: 4px; }
+  .lead-preview { font-size: 12px; color: #a08a76; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .badge-status { font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
+  .badge-baru { background: #ffe3cc; color: #ff5500; }
+  .badge-dihubungi { background: #fff3cd; color: #a87b00; }
+  .badge-selesai { background: #d6f5df; color: #1a7d3a; }
+
+  /* Statistik (CSS-only bar charts) */
+  .chart-title { font-size: 13px; color: #6b5340; margin: 18px 0 8px; font-weight: 600; }
+  .chart-title:first-child { margin-top: 0; }
+  .chart-legend { display: flex; gap: 14px; font-size: 11px; color: #6b5340; margin-bottom: 10px; }
+  .legend-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+  .bar-chart { display: flex; align-items: flex-end; gap: 4px; height: 120px; }
+  .bar-col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; flex: 1; min-width: 0; }
+  .bar-col .bar { width: 100%; background: linear-gradient(180deg,#ff7a00,#ff5500); border-radius: 4px 4px 0 0; min-height: 2px; }
+  .bar-col .bar-label { font-size: 9px; color: #a08a76; margin-top: 4px; white-space: nowrap; }
+  .bar-col-double { display: flex; gap: 2px; align-items: flex-end; height: 100%; width: 100%; justify-content: center; }
+  .bar-col-double .bar { flex: 1; }
+  .bar-secondary { background: linear-gradient(180deg,#ffd9b3,#ffae6b) !important; }
+
+  /* Messages / lead modal */
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: none; align-items: center; justify-content: center; z-index: 10000; padding: 20px; }
   .modal-overlay.open { display: flex; }
   .modal-box { background: #fff; border-radius: 16px; padding: 24px; width: 480px; max-width: 100%; max-height: 80vh; overflow-y: auto; }
@@ -95,23 +126,59 @@
   <div class="dash-header">
     <div>
       <h1 id="site-name-label">Dashboard</h1>
-      <span>Kelola chatbot dan lihat pesan masuk dari pengunjung</span>
+      <span>Kelola leads CRM, chatbot, dan statistik bisnis kamu</span>
     </div>
     <button class="btn btn-outline btn-sm" onclick="doLogout()">Logout</button>
   </div>
 
   <div class="tabs">
-    <button class="tab-btn active" id="tab-btn-inbox" onclick="switchTab('inbox')">Inbox Pesan</button>
+    <button class="tab-btn active" id="tab-btn-leads" onclick="switchTab('leads')">CRM Leads</button>
+    <button class="tab-btn" id="tab-btn-conversations" onclick="switchTab('conversations')">Semua Percakapan</button>
+    <button class="tab-btn" id="tab-btn-stats" onclick="switchTab('stats')">Statistik</button>
     <button class="tab-btn" id="tab-btn-bot" onclick="switchTab('bot')">Atur Chatbot</button>
     <button class="tab-btn" id="tab-btn-widget" onclick="switchTab('widget')">Tampilan Widget</button>
   </div>
 
-  <!-- Inbox panel -->
-  <div class="panel active" id="panel-inbox">
+  <!-- CRM Leads panel -->
+  <div class="panel active" id="panel-leads">
     <div class="card">
-      <h2>Percakapan Pengunjung</h2>
-      <p style="font-size:12px; color:#a08a76; margin-bottom:14px;">Percakapan dengan tanda <strong style="color:#ff5500">Penting</strong> mengandung kontak, minat beli, booking, atau komplain - cek lebih dulu.</p>
+      <h2>Leads</h2>
+      <p style="font-size:12px; color:#a08a76; margin-bottom:14px;">Lead dibuat otomatis saat pengunjung kirim pesan yang mengandung kontak, minat beli, booking, atau komplain. Klik lead untuk lihat riwayat chat, ubah status, dan tambah catatan.</p>
+      <div class="status-filters">
+        <button class="filter-pill active" data-status="" onclick="filterLeads('')">Semua</button>
+        <button class="filter-pill" data-status="baru" onclick="filterLeads('baru')">Baru</button>
+        <button class="filter-pill" data-status="dihubungi" onclick="filterLeads('dihubungi')">Dihubungi</button>
+        <button class="filter-pill" data-status="selesai" onclick="filterLeads('selesai')">Selesai</button>
+      </div>
+      <div id="lead-list" class="lead-list"><div class="empty-msg">Memuat...</div></div>
+    </div>
+  </div>
+
+  <!-- All conversations panel -->
+  <div class="panel" id="panel-conversations">
+    <div class="card">
+      <h2>Semua Percakapan</h2>
+      <p style="font-size:12px; color:#a08a76; margin-bottom:14px;">Percakapan dengan tanda <strong style="color:#ff5500">Penting</strong> sudah otomatis masuk ke CRM Leads.</p>
       <div id="conv-list" class="conv-list"><div class="empty-msg">Memuat...</div></div>
+    </div>
+  </div>
+
+  <!-- Statistik panel -->
+  <div class="panel" id="panel-stats">
+    <div class="card">
+      <h2>Statistik</h2>
+      <div class="chart-title">Volume Pesan & Percakapan (14 hari terakhir)</div>
+      <div class="chart-legend">
+        <span><span class="legend-dot" style="background:#ff5500;"></span>Pesan</span>
+        <span><span class="legend-dot" style="background:#ffae6b;"></span>Percakapan</span>
+      </div>
+      <div class="bar-chart" id="chart-daily"></div>
+
+      <div class="chart-title">Jam Tersibuk</div>
+      <div class="bar-chart" id="chart-hours"></div>
+
+      <div class="chart-title">Hari Tersibuk</div>
+      <div class="bar-chart" id="chart-days"></div>
     </div>
   </div>
 
@@ -138,7 +205,7 @@
         </div>
         <div class="form-row">
           <label>Posisi</label>
-          <select id="widget-position-input" onchange="updatePreview()" style="width:100%; padding:10px; border:1px solid #f0d9c4; border-radius:8px; background:#fff; font-size:14px;">
+          <select id="widget-position-input" onchange="updatePreview()">
             <option value="right">Kanan</option>
             <option value="left">Kiri</option>
           </select>
@@ -168,11 +235,45 @@
   </div>
 </div>
 
+<!-- Lead detail modal -->
+<div class="modal-overlay" id="lead-modal">
+  <div class="modal-box">
+    <h3>Detail Lead</h3>
+    <div class="form-row">
+      <label>Kontak</label>
+      <div id="lead-contact-display" style="font-size:13px; color:#5a4a3c;"></div>
+    </div>
+    <div class="form-row">
+      <label>Status</label>
+      <select id="lead-status-input">
+        <option value="baru">Baru</option>
+        <option value="dihubungi">Dihubungi</option>
+        <option value="selesai">Selesai</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>Catatan</label>
+      <textarea id="lead-notes-input" placeholder="Catatan follow-up untuk lead ini..." style="height:80px;"></textarea>
+    </div>
+    <label style="display:block; font-size:13px; color:#6b5340; margin-bottom:6px;">Riwayat Chat</label>
+    <div id="lead-messages-list"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline btn-sm" onclick="closeLeadModal()">Tutup</button>
+      <button class="btn btn-orange btn-sm" id="lead-save-btn" onclick="saveLead()">Simpan</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
 const API_BASE = window.location.origin;
+const TABS = ["leads", "conversations", "stats", "bot", "widget"];
+const STATUS_LABELS = { baru: "Baru", dihubungi: "Dihubungi", selesai: "Selesai" };
+const DAY_SHORT = { Minggu: "Min", Senin: "Sen", Selasa: "Sel", Rabu: "Rab", Kamis: "Kam", Jumat: "Jum", Sabtu: "Sab" };
 let clientToken = "";
+let currentLeadFilter = "";
+let currentLeadId = null;
 
 function showToast(msg) {
   const t = document.getElementById("toast");
@@ -222,14 +323,17 @@ function enterDashboard() {
   document.getElementById("login-screen").style.display = "none";
   document.getElementById("dashboard").style.display = "block";
   loadMe();
-  loadConversations();
+  switchTab("leads");
 }
 
 function switchTab(tab) {
-  ["inbox", "bot", "widget"].forEach(t => {
+  TABS.forEach(t => {
     document.getElementById("panel-" + t).classList.toggle("active", t === tab);
     document.getElementById("tab-btn-" + t).classList.toggle("active", t === tab);
   });
+  if (tab === "leads") loadLeads(currentLeadFilter);
+  if (tab === "conversations") loadConversations();
+  if (tab === "stats") loadAnalytics();
 }
 
 function loadMe() {
@@ -337,6 +441,182 @@ function openMessages(conversationId) {
 
 function closeMessagesModal() {
   document.getElementById("messages-modal").classList.remove("open");
+}
+
+function filterLeads(status) {
+  currentLeadFilter = status;
+  document.querySelectorAll(".filter-pill").forEach(p => p.classList.toggle("active", p.dataset.status === status));
+  loadLeads(status);
+}
+
+function loadLeads(status) {
+  const url = API_BASE + "/api/client/leads" + (status ? ("?status=" + encodeURIComponent(status)) : "");
+  fetch(url, { headers: authHeaders() })
+    .then(r => r.json())
+    .then(leads => {
+      const el = document.getElementById("lead-list");
+      if (!leads.length) {
+        el.innerHTML = '<div class="empty-msg">Belum ada lead' + (status ? " dengan status ini." : ".") + '</div>';
+        return;
+      }
+      el.innerHTML = "";
+      leads.forEach(l => {
+        const div = document.createElement("div");
+        div.className = "lead-card";
+        div.onclick = () => openLead(l);
+        const date = new Date(l.updated_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+        const contactParts = [];
+        if (l.contact_phone) contactParts.push("📞 " + l.contact_phone);
+        if (l.contact_email) contactParts.push("✉️ " + l.contact_email);
+        div.innerHTML =
+          '<div class="lead-card-top">' +
+            '<span class="badge-status badge-' + l.status + '"></span>' +
+            '<span class="lead-date"></span>' +
+          '</div>' +
+          '<div class="lead-contact"></div>' +
+          '<div class="lead-preview"></div>';
+        div.querySelector(".badge-status").textContent = STATUS_LABELS[l.status] || l.status;
+        div.querySelector(".lead-date").textContent = date;
+        div.querySelector(".lead-contact").textContent = contactParts.join("  ·  ") || "(kontak tidak terdeteksi)";
+        div.querySelector(".lead-preview").textContent = l.last_message || "";
+        el.appendChild(div);
+      });
+    })
+    .catch(() => {
+      document.getElementById("lead-list").innerHTML = '<div class="empty-msg" style="color:#d92d20;">Gagal memuat leads.</div>';
+    });
+}
+
+function openLead(lead) {
+  currentLeadId = lead.id;
+  const contactParts = [];
+  if (lead.contact_phone) contactParts.push("Telepon: " + lead.contact_phone);
+  if (lead.contact_email) contactParts.push("Email: " + lead.contact_email);
+  document.getElementById("lead-contact-display").textContent = contactParts.join(" · ") || "Kontak tidak terdeteksi otomatis";
+  document.getElementById("lead-status-input").value = lead.status;
+  document.getElementById("lead-notes-input").value = lead.notes || "";
+
+  const msgEl = document.getElementById("lead-messages-list");
+  msgEl.innerHTML = '<div class="empty-msg">Memuat riwayat...</div>';
+  fetch(API_BASE + "/api/client/conversations/" + lead.conversation_id + "/messages", { headers: authHeaders() })
+    .then(r => r.json())
+    .then(messages => {
+      msgEl.innerHTML = "";
+      messages.forEach(m => {
+        const div = document.createElement("div");
+        div.className = "msg-bubble msg-" + m.role + (m.is_important ? " msg-important" : "");
+        div.textContent = m.content;
+        msgEl.appendChild(div);
+      });
+    })
+    .catch(() => { msgEl.innerHTML = '<div class="empty-msg" style="color:#d92d20;">Gagal memuat riwayat pesan.</div>'; });
+
+  document.getElementById("lead-modal").classList.add("open");
+}
+
+function closeLeadModal() {
+  document.getElementById("lead-modal").classList.remove("open");
+  currentLeadId = null;
+}
+
+function saveLead() {
+  if (!currentLeadId) return;
+  const status = document.getElementById("lead-status-input").value;
+  const notes = document.getElementById("lead-notes-input").value;
+  const btn = document.getElementById("lead-save-btn");
+  btn.disabled = true;
+  fetch(API_BASE + "/api/client/leads/" + currentLeadId, {
+    method: "PATCH",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ status, notes })
+  })
+    .then(r => { if (!r.ok) return r.json().then(d => { throw new Error(d.error); }); return r.json(); })
+    .then(() => {
+      showToast("Lead diperbarui");
+      closeLeadModal();
+      loadLeads(currentLeadFilter);
+    })
+    .catch(err => showToast("Gagal: " + err.message))
+    .finally(() => { btn.disabled = false; });
+}
+
+function loadAnalytics() {
+  fetch(API_BASE + "/api/client/analytics", { headers: authHeaders() })
+    .then(r => r.json())
+    .then(data => {
+      renderDailyChart(data.dailyVolume);
+      renderHourChart(data.hours);
+      renderDayChart(data.days);
+    })
+    .catch(() => showToast("Gagal memuat statistik"));
+}
+
+function renderDailyChart(rows) {
+  const el = document.getElementById("chart-daily");
+  const max = Math.max(1, ...rows.map(r => r.messageCount));
+  el.innerHTML = "";
+  rows.forEach(r => {
+    const col = document.createElement("div");
+    col.className = "bar-col";
+    const label = new Date(r.day + "T00:00:00").toLocaleDateString("id-ID", { day: "numeric", month: "numeric" });
+    const inner = document.createElement("div");
+    inner.className = "bar-col-double";
+    inner.title = r.messageCount + " pesan, " + r.conversationCount + " percakapan (" + label + ")";
+    const barMsg = document.createElement("div");
+    barMsg.className = "bar";
+    barMsg.style.height = (r.messageCount / max * 100) + "%";
+    const barConv = document.createElement("div");
+    barConv.className = "bar bar-secondary";
+    barConv.style.height = (r.conversationCount / max * 100) + "%";
+    inner.appendChild(barMsg);
+    inner.appendChild(barConv);
+    const labelEl = document.createElement("div");
+    labelEl.className = "bar-label";
+    labelEl.textContent = label;
+    col.appendChild(inner);
+    col.appendChild(labelEl);
+    el.appendChild(col);
+  });
+}
+
+function renderHourChart(rows) {
+  const el = document.getElementById("chart-hours");
+  const max = Math.max(1, ...rows.map(r => r.count));
+  el.innerHTML = "";
+  rows.forEach(r => {
+    const col = document.createElement("div");
+    col.className = "bar-col";
+    const bar = document.createElement("div");
+    bar.className = "bar";
+    bar.style.height = (r.count / max * 100) + "%";
+    bar.title = r.count + " pesan jam " + r.hour + ":00";
+    const labelEl = document.createElement("div");
+    labelEl.className = "bar-label";
+    labelEl.textContent = r.hour % 3 === 0 ? r.hour : "";
+    col.appendChild(bar);
+    col.appendChild(labelEl);
+    el.appendChild(col);
+  });
+}
+
+function renderDayChart(rows) {
+  const el = document.getElementById("chart-days");
+  const max = Math.max(1, ...rows.map(r => r.count));
+  el.innerHTML = "";
+  rows.forEach(r => {
+    const col = document.createElement("div");
+    col.className = "bar-col";
+    const bar = document.createElement("div");
+    bar.className = "bar";
+    bar.style.height = (r.count / max * 100) + "%";
+    bar.title = r.count + " pesan hari " + r.day;
+    const labelEl = document.createElement("div");
+    labelEl.className = "bar-label";
+    labelEl.textContent = DAY_SHORT[r.day] || r.day;
+    col.appendChild(bar);
+    col.appendChild(labelEl);
+    el.appendChild(col);
+  });
 }
 
 document.getElementById("password-input").addEventListener("keydown", function (e) {

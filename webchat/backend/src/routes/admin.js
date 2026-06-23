@@ -134,4 +134,26 @@ adminRouter.delete("/sites/:id/account", requireAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
+// Pemakaian token AI per website + total agregat - admin saja, tanpa estimasi biaya
+// karena tarif per model tidak ditrack di sistem ini (lebih baik tampil apa adanya
+// daripada tampilkan angka biaya yang bisa salah).
+adminRouter.get("/usage", requireAdmin, (req, res) => {
+  const sites = db
+    .prepare(
+      `SELECT s.id, s.name, COALESCE(SUM(u.tokens_in), 0) AS tokens_in, COALESCE(SUM(u.tokens_out), 0) AS tokens_out
+       FROM sites s
+       LEFT JOIN usage_log u ON u.site_id = s.id
+       GROUP BY s.id
+       ORDER BY s.name ASC`,
+    )
+    .all();
+
+  const total = sites.reduce(
+    (acc, s) => ({ tokens_in: acc.tokens_in + s.tokens_in, tokens_out: acc.tokens_out + s.tokens_out }),
+    { tokens_in: 0, tokens_out: 0 },
+  );
+
+  res.json({ sites, total });
+});
+
 export default adminRouter;
