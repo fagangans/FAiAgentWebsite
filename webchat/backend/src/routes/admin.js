@@ -1,16 +1,24 @@
 import { Router } from "express";
 import { v4 as uuid } from "uuid";
+import crypto from "node:crypto";
 import db from "../db/client.js";
 import { hashPassword } from "../auth/password.js";
 import { verifyToken } from "../auth/jwt.js";
 
 export const adminRouter = Router();
 
+const MIN_PASSWORD_LENGTH = 8;
+
+// Perbandingan timing-safe untuk ADMIN_TOKEN supaya tidak bisa di-timing-attack (A07).
+function adminTokenValid(provided) {
+  const expected = process.env.ADMIN_TOKEN;
+  if (!expected || !provided || provided.length !== expected.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(provided), Buffer.from(expected));
+}
+
 // Dilindungi ADMIN_TOKEN (cara lama, dipakai script/curl) ATAU JWT role admin (dashboard baru).
-// Dipakai untuk mendaftarkan website klien baru tanpa perlu ubah kode.
 function requireAdmin(req, res, next) {
-  const legacyToken = req.headers["x-admin-token"];
-  if (process.env.ADMIN_TOKEN && legacyToken === process.env.ADMIN_TOKEN) return next();
+  if (adminTokenValid(req.headers["x-admin-token"])) return next();
 
   const authHeader = req.headers["authorization"] || "";
   const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
@@ -99,6 +107,9 @@ adminRouter.post("/sites/:id/account", requireAdmin, (req, res) => {
 
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: "Username dan password wajib diisi" });
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return res.status(400).json({ error: `Password minimal ${MIN_PASSWORD_LENGTH} karakter` });
+  }
 
   const usernameTaken = db.prepare("SELECT id FROM users WHERE username = ?").get(username);
   if (usernameTaken) return res.status(409).json({ error: "Username sudah dipakai" });
@@ -113,6 +124,7 @@ adminRouter.post("/sites/:id/account", requireAdmin, (req, res) => {
     "INSERT INTO users (id, username, password_hash, role, site_id) VALUES (?, ?, ?, 'client', ?)",
   ).run(id, username, hashPassword(password), site.id);
 
+  console.log(`[admin] Akun klien dibuat: username="${username}" site=${site.id}`);
   res.json({ ok: true, id, username });
 });
 
@@ -124,8 +136,12 @@ adminRouter.patch("/sites/:id/account", requireAdmin, (req, res) => {
 
   const { password } = req.body;
   if (!password) return res.status(400).json({ error: "Password baru wajib diisi" });
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return res.status(400).json({ error: `Password minimal ${MIN_PASSWORD_LENGTH} karakter` });
+  }
 
   db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(hashPassword(password), account.id);
+  console.log(`[admin] Password klien direset: site=${req.params.id}`);
   res.json({ ok: true });
 });
 
