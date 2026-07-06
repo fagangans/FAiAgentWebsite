@@ -17,6 +17,11 @@
 // [ ===== Import File ===== ]
 import "./len.js";
 import "./database/Menu/LenwyMenu.js";
+import { getAIAnswer } from "./case/ai/ai4chat.js";
+import { getSession } from "./lib/gameSession.js";
+import { checkRate } from "./lib/rateLimit.js";
+import { logCommand } from "./lib/logger.js";
+import { isAntilink, containsGroupLink } from "./lib/antilink.js";
 
 // [ ===== Import Pustaka ===== ]
 import fs from "fs";
@@ -196,10 +201,6 @@ export default async (lenwy, m, meta) => {
     ? sender.split(":")[0].split("@")[0] // Ambil Nomor Saja
     : null;
 
-  // console.log(chalk.yellow(`[DEBUG JID] Sender Original: ${originalSender}`));
-  // console.log(chalk.yellow(`[DEBUG JID] Sender Auth (PN): ${sender}`));
-  // console.log(chalk.green(`[DEBUG JID] Sender Normal: ${normalizedSender}`));
-
   if (msg.key.fromMe) return;
 
   // Anti Double
@@ -224,9 +225,28 @@ export default async (lenwy, m, meta) => {
     },
   };
 
+  // Pengirim pesan aman: menambah indikator "mengetik" + jeda acak saat mode
+  // anti-ban aktif, agar balasan (termasuk balasan Auto AI) terasa manusiawi.
+  const safeSend = async (content) => {
+    try {
+      if (globalThis.antiBan) {
+        await lenwy
+          .sendPresenceUpdate("composing", replyJid)
+          .catch(() => {});
+        await sleep(600 + Math.floor(Math.random() * 1200)); // 0.6 - 1.8 detik
+      }
+      await lenwy.sendMessage(replyJid, content, { quoted: len });
+      console.log(chalk.green.bold(`[✔] Terkirim → ${replyJid}`));
+    } catch (err) {
+      console.error(
+        chalk.red.bold("[✘] Gagal Kirim Pesan:"),
+        err?.message || err,
+      );
+    }
+  };
+
   // Custom Reply
-  const lenwyreply = (teks) =>
-    lenwy.sendMessage(replyJid, { text: teks }, { quoted: len });
+  const lenwyreply = (teks) => safeSend({ text: teks });
 
   // Gambar Menu
   const MenuImage = fs.readFileSync(globalThis.MenuImage);
@@ -290,12 +310,19 @@ export default async (lenwy, m, meta) => {
         botParticipant?.admin === "admin" ||
         botParticipant?.admin === "superadmin" ||
         false;
-
-      // console.log("[BOT SEARCH JID]", botJidForSearch);
-      // console.log("[BOT PARTICIPANT]", botParticipant);
-      // console.log("[IS BOT ADMIN]", isBotAdmin);
     }
   }
+
+  // Cocokkan identitas berdasarkan digit nomor agar tahan format @lid / @s.whatsapp.net
+  // dan device-id (mis. "628xxx:12@s.whatsapp.net").
+  const onlyDigits = (val) =>
+    (val || "").toString().split("@")[0].split(":")[0].replace(/\D/g, "");
+  const idCandidates = [normalizedSender, sender, originalSender, senderJid]
+    .map(onlyDigits)
+    .filter(Boolean);
+  const matchesList = (list) =>
+    Array.isArray(list) &&
+    list.some((u) => idCandidates.includes(onlyDigits(u)));
 
   // Premium
   const premiumPath = path.join(
@@ -305,7 +332,7 @@ export default async (lenwy, m, meta) => {
     "premium.json",
   );
   const premiumUsers = readJSONSync(premiumPath);
-  const isPremium = premiumUsers.includes(normalizedSender);
+  const isPremium = matchesList(premiumUsers);
 
   // Creator
   const CreatorPath = path.join(
@@ -315,7 +342,30 @@ export default async (lenwy, m, meta) => {
     "creator.json",
   );
   const isCreatorArray = readJSONSync(CreatorPath);
-  const isLenwy = isCreatorArray.includes(normalizedSender);
+  const isLenwy = matchesList(isCreatorArray);
+
+  // Anti-ban: tandai pesan sudah dibaca (terlihat lebih manusiawi)
+  if (globalThis.antiBan) {
+    await lenwy.readMessages([msg.key]).catch(() => {});
+  }
+
+  // Rate limit: cegah spam. Owner & user yang sedang main game dikecualikan.
+  if (
+    globalThis.rateLimit > 0 &&
+    !isLenwy &&
+    !getSession(replyJid, normalizedSender)
+  ) {
+    const rate = checkRate(normalizedSender, globalThis.rateLimit);
+    if (rate === "warn") {
+      return safeSend({
+        text: "⏳ Pelan-pelan ya, kamu mengirim pesan terlalu cepat. Coba lagi sebentar.",
+      });
+    }
+    if (rate === "blocked") {
+      console.log(chalk.yellow.bold("[RATE-LIMIT]"), normalizedSender);
+      return;
+    }
+  }
 
   // Delete Message
   async function deleteMessage(msgKey, tag = "DELETE") {
@@ -335,6 +385,24 @@ export default async (lenwy, m, meta) => {
     }
   }
 
+  // Catat aktivitas (audit log) untuk setiap pesan berisi teks
+  if (body && body.trim()) logCommand(normalizedSender, body.trim(), replyJid);
+
+  // [ Anti-Link ] Hapus link grup WA dari anggota biasa bila fitur aktif di grup ini.
+  if (
+    isGroup &&
+    !isAdmin &&
+    !isLenwy &&
+    isAntilink(replyJid) &&
+    containsGroupLink(body)
+  ) {
+    await deleteMessage(msg.key, "ANTILINK");
+    return safeSend({
+      text: `🛡️ *Anti-Link!*\n@${normalizedSender.split("@")[0]}, dilarang mengirim link grup di sini.`,
+      mentions: [normalizedSender],
+    });
+  }
+
   let usedPrefix = null;
   for (const pre of globalThis.prefix) {
     if (body.startsWith(pre)) {
@@ -342,7 +410,51 @@ export default async (lenwy, m, meta) => {
       break;
     }
   }
-  if (!usedPrefix && !globalThis.noprefix) return;
+
+  // [ Game Session Routing ]
+  // Jika user sedang bermain game dan kirim pesan tanpa prefix → dianggap jawaban game.
+  if (!usedPrefix && body.trim()) {
+    const gameSession = getSession(replyJid, normalizedSender);
+    if (gameSession?.onAnswer) {
+      try {
+        const handled = await gameSession.onAnswer(body.trim().toLowerCase(), {
+          LenwyText: (text) => safeSend({ text }),
+          safeSend,
+          replyJid,
+          normalizedSender,
+          pushname,
+          rawBody: body.trim(),
+        });
+        if (handled) return;
+      } catch (err) {
+        console.error(chalk.red("[GAME ERROR]"), err?.message || err);
+      }
+    }
+  }
+
+  // [ Auto AI ] — AI4Chat Sebagai AI Default Bot
+  // Pesan TANPA prefix langsung dijawab AI4Chat (tanpa perlu mengetik .ai di depan).
+  // Perintah biasa (mis. .ping, .menu) tetap pakai prefix seperti biasa.
+  if (!usedPrefix) {
+    const autoAllowed =
+      globalThis.autoAI &&
+      body.trim() &&
+      (!isGroup || globalThis.autoAIPrivateOnly === false);
+
+    if (autoAllowed) {
+      // Skip Auto AI kalau ada game session aktif (agar jawaban tidak masuk ke AI)
+      const gameActive = getSession(replyJid, normalizedSender);
+      if (!gameActive) {
+        console.log(chalk.magenta.bold("[AUTO-AI]"), chalk.white(body.trim()));
+        const answer = await getAIAnswer(body.trim(), normalizedSender, commands);
+        if (answer) return lenwyreply(answer);
+        return lenwyreply("⚠️ AI sedang tidak merespon. Coba lagi sebentar lagi.");
+      }
+    }
+
+    // Tanpa prefix & Auto AI nonaktif → abaikan (kecuali mode noprefix)
+    if (!globalThis.noprefix) return;
+  }
 
   const args = usedPrefix
     ? body.slice(usedPrefix.length).trim().split(" ")
@@ -352,34 +464,23 @@ export default async (lenwy, m, meta) => {
   const q = args.join(" ");
 
   // Helper
-  const LenwyText = (text) =>
-    lenwy.sendMessage(replyJid, { text }, { quoted: len });
+  const LenwyText = (text) => safeSend({ text });
 
-  const LenwyWait = () => lenwyreply(globalThis.mess.wait);
+  const LenwyWait = () => safeSend({ text: globalThis.mess.wait });
 
   // Send Video
-  const LenwyVideo = (url, caption = "") =>
-    lenwy.sendMessage(replyJid, { video: { url }, caption }, { quoted: len });
+  const LenwyVideo = (url, caption = "") => safeSend({ video: { url }, caption });
 
   // Send Image
-  const LenwyImage = (url, caption = "") =>
-    lenwy.sendMessage(replyJid, { image: { url }, caption }, { quoted: len });
+  const LenwyImage = (url, caption = "") => safeSend({ image: { url }, caption });
 
   // Send Audio
   const LenwyAudio = (url, ptt = false) =>
-    lenwy.sendMessage(
-      replyJid,
-      { audio: { url }, mimetype: "audio/mpeg", ptt },
-      { quoted: len },
-    );
+    safeSend({ audio: { url }, mimetype: "audio/mpeg", ptt });
 
   // Send File
   const LenwyFile = (buffer, fileName, mime) =>
-    lenwy.sendMessage(
-      replyJid,
-      { document: buffer, fileName, mimetype: mime },
-      { quoted: len },
-    );
+    safeSend({ document: buffer, fileName, mimetype: mime });
 
   // Label Menu
   function getLabel(info) {
@@ -438,15 +539,11 @@ export default async (lenwy, m, meta) => {
         });
     }
 
-    await lenwy.sendMessage(
-      replyJid,
-      {
-        image: MenuImage,
-        caption: `${text}\n☘️ *Lenwy From Scratch*`,
-        mentions: [normalizedSender],
-      },
-      { quoted: len },
-    );
+    await safeSend({
+      image: MenuImage,
+      caption: `${text}\n☘️ *Lenwy From Scratch*`,
+      mentions: [normalizedSender],
+    });
   }
 
   // Category Menu
@@ -466,15 +563,11 @@ export default async (lenwy, m, meta) => {
         text += `*[+] ${folder.toUpperCase()}MENU*\n`;
       });
 
-    await lenwy.sendMessage(
-      replyJid,
-      {
-        image: MenuImage,
-        caption: `${text}\n☘️ *Lenwy From Scratch*`,
-        mentions: [normalizedSender],
-      },
-      { quoted: len },
-    );
+    await safeSend({
+      image: MenuImage,
+      caption: `${text}\n☘️ *Lenwy From Scratch*`,
+      mentions: [normalizedSender],
+    });
   }
 
   // Category Menu Dynamic
@@ -528,15 +621,14 @@ export default async (lenwy, m, meta) => {
   if (info.maintenance === true && !isLenwy)
     return LenwyText(globalThis.mess.maintenance);
 
-  if (!isGroup) {
-    if (!isPremium && !isLenwy) {
-      if (!info.allowPrivate) {
-        return LenwyText(
-          "⚠️ *Kamu Bukan User Premium!*\n\n" +
-            "Fitur ini tidak tersedia di Private Chat.\n\n" +
-            "Silakan upgrade ke Premium untuk akses penuh.",
-        );
-      }
+  // Akses private chat (default terbuka untuk semua).
+  // Set globalThis.openPrivate = false di len.js bila ingin batasi ke Owner/Premium.
+  if (!isGroup && globalThis.openPrivate === false) {
+    if (!isPremium && !isLenwy && !info.allowPrivate) {
+      return LenwyText(
+        "⚠️ *Fitur Premium*\n\n" +
+          "Fitur ini hanya tersedia untuk Owner/Premium di private chat.",
+      );
     }
   }
 
@@ -578,6 +670,7 @@ export default async (lenwy, m, meta) => {
     plugins,
     commands,
     normalizedSender,
+    pushname,
     deleteMessage,
   });
 };
