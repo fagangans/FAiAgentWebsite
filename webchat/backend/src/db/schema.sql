@@ -7,8 +7,8 @@ CREATE TABLE IF NOT EXISTS sites (
   domain          TEXT,
   widget_key      TEXT NOT NULL UNIQUE,    -- key publik yang ditempel di widget (bukan secret)
   export_token    TEXT NOT NULL UNIQUE,    -- token rahasia untuk klien akses export data sendiri
-  system_prompt   TEXT DEFAULT 'Anda adalah asisten yang membantu.',
-  ai_provider     TEXT DEFAULT 'qwen',     -- 'qwen' | 'claude' - per-klien bisa beda
+  system_prompt   TEXT DEFAULT 'Kamu adalah customer service dari bisnis ini.',
+  ai_provider     TEXT DEFAULT 'ai4chat',  -- 'ai4chat' | 'gemini' | 'qwen' | 'claude'
   widget_color    TEXT DEFAULT '#c9a84c',  -- warna gelembung & header widget, diatur klien sendiri
   widget_position TEXT DEFAULT 'right',    -- 'right' | 'left'
   widget_greeting TEXT DEFAULT 'Halo! Ada yang bisa saya bantu?',

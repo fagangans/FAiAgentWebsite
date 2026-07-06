@@ -9,6 +9,19 @@ export const adminRouter = Router();
 
 const MIN_PASSWORD_LENGTH = 8;
 
+// Template sistem prompt CS default — pemilik bisnis tinggal mengisi bagian Info Bisnis.
+const DEFAULT_SYSTEM_PROMPT = `Kamu adalah customer service dari bisnis ini. Tugasmu membantu pengunjung dengan cepat, ramah, dan jelas.
+
+Cara bicara: gunakan bahasa Indonesia yang santai tapi tetap sopan dan profesional, seperti orang sungguhan bukan robot. Jawab langsung ke inti pertanyaan tanpa basa-basi yang tidak perlu. Kalau pengunjung bertanya soal hal yang kamu tidak tahu, jujur saja dan tawarkan agar mereka menghubungi tim kami secara langsung. Jangan pernah mengarang informasi.
+
+--- Info Bisnis (isi bagian ini) ---
+Nama bisnis: [isi nama bisnis kamu]
+Produk atau layanan: [isi daftar produk atau layanan beserta harganya]
+Jam operasional: [isi jam buka dan tutup]
+Kontak: [isi nomor WhatsApp atau cara menghubungi tim]
+Lokasi: [isi alamat jika ada toko fisik]
+Info tambahan: [isi promo aktif, syarat pembelian, kebijakan pengembalian, dll]`;
+
 // Perbandingan timing-safe untuk ADMIN_TOKEN supaya tidak bisa di-timing-attack (A07).
 function adminTokenValid(provided) {
   const expected = process.env.ADMIN_TOKEN;
@@ -45,8 +58,8 @@ adminRouter.post("/sites", requireAdmin, (req, res) => {
     domain || null,
     widgetKey,
     exportToken,
-    systemPrompt || "Anda adalah asisten yang membantu.",
-    aiProvider || "gemini",
+    systemPrompt || DEFAULT_SYSTEM_PROMPT,
+    aiProvider || "ai4chat",
   );
 
   res.json({ id, widgetKey, exportToken });
