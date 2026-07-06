@@ -1,4 +1,4 @@
-/*  
+/*
 
   Made By Lenwy
   Base : Lenwy
@@ -14,13 +14,22 @@
 
 */
 
+import axios from "axios";
 import Ai4Chat from "../../scrape/Ai4Chat.js";
+import { askGemini } from "../../scrape/Gemini.js";
+import { askGroq } from "../../scrape/Groq.js";
+import { getHistory, addMessage, clearHistory } from "../../lib/aiMemory.js";
+import { getKnowledgeText } from "../../lib/knowledge.js";
+import { getModel } from "../../lib/aiModel.js";
+import { getProductCatalogText } from "../../lib/products.js";
+import { getCommandCatalogText } from "../../lib/commandCatalog.js";
+import { searchWeb } from "../../scrape/WebSearch.js";
 
 export const info = {
   name: "AI4Chat",
 
   menu: ["AI"],
-  case: ["ai"],
+  case: ["ai", "resetai"],
 
   description: "Tanyakan Apa Saja!",
   hidden: false,
@@ -32,30 +41,190 @@ export const info = {
   admin: false,
   botAdmin: false,
 
-  allowPrivate: false,
+  allowPrivate: true,
 };
 
-export default async function handler(lenwy) {
-  const { command, q, LenwyText, LenwyWait } = lenwy;
+// Sumber AI cadangan bila Ai4Chat sedang down
+async function askPublicAI(q) {
+  const url = `https://api.fromscratch.web.id/v1/api/ai/publicai?query=${encodeURIComponent(q)}`;
+  const { data } = await axios.get(url, { timeout: 20000 });
+  return data?.data?.response || null;
+}
 
-  switch (command) {
-    case "ai":
-      {
-        if (!q) return LenwyText("☘️ *Contoh:* ai Apa itu JavaScript?");
+// Kata kunci yang menandakan butuh info terkini/real-time dari internet
+const WEB_SEARCH_KEYWORDS = [
+  "hari ini", "sekarang", "terbaru", "terkini", "terbaru ini", "saat ini",
+  "berita", "kabar", "viral", "trending", "update", "skor", "pertandingan",
+  "cuaca", "ramalan", "harga emas", "harga bbm", "kurs", "nilai tukar",
+  "kapan", "tanggal berapa", "jam berapa", "siapa presiden", "siapa menteri",
+  "hasil pemilu", "covid", "gempa", "bencana", "rilis", "launching",
+];
 
-        LenwyWait();
+const GREETING_REGEX =
+  /^(hai|halo|hallo|hello|hi|p|pagi|siang|sore|malam|test|tes|woi|woy|ok|oke|sip|makasih|terima kasih|thanks)\b/i;
 
-        try {
-          const lenai = await Ai4Chat(q);
+// Tentukan apakah query butuh pencarian web (info terkini) atau cukup dijawab dari pengetahuan AI
+function needsWebSearch(q) {
+  const text = q.toLowerCase().trim();
+  if (text.length < 4) return false;
+  if (GREETING_REGEX.test(text)) return false;
+  return WEB_SEARCH_KEYWORDS.some((k) => text.includes(k));
+}
 
-          if (!lenai) return LenwyText("⚠️ AI Tidak Merespon.");
+// Cegah web search menggantung lama — kalau lewat batas waktu, lanjut tanpa hasil web
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((resolve) => setTimeout(() => resolve(null), ms)),
+  ]);
+}
 
-          await LenwyText(`*Lenwy AI*\n\n${lenai}`);
-        } catch (error) {
-          console.error("Error AI:", error);
-          LenwyText(globalThis.mess.error);
-        }
-      }
-      break;
+// Fungsi AI yang bisa dipakai ulang (oleh perintah .ai maupun mode Auto AI).
+// Mendukung multi-model: default (Ai4Chat, AI default bot), gemini-flash, gemini-pro,
+// atau groq-llama/groq-fast.
+export async function getAIAnswer(q, userId = null, commandsMap = null) {
+  const persona = globalThis.aiPersona || "";
+  const model = userId ? getModel(userId) : "default";
+
+  // Susun konteks dari riwayat percakapan
+  let context = "";
+  if (userId) {
+    const history = getHistory(userId);
+    if (history.length) {
+      context =
+        "\n\nRiwayat percakapan (konteks):\n" +
+        history
+          .map((h) => `${h.role === "user" ? "User" : "Kamu"}: ${h.text}`)
+          .join("\n");
+    }
   }
+
+  // Basis pengetahuan (data bisnis/produk yang diajarkan Owner)
+  const knowledge = getKnowledgeText();
+
+  // Katalog produk toko (untuk jawab FAQ ketersediaan/harga barang)
+  const catalog = getProductCatalogText();
+
+  // Katalog fitur/command bot (untuk merekomendasikan command yang tepat)
+  const commandCatalog = getCommandCatalogText(commandsMap);
+
+  // Web search — hanya dijalankan kalau pertanyaan memang butuh info terkini,
+  // dan dibatasi waktu maksimum agar tidak memperlambat chat biasa (sapaan, dll).
+  let webResult = null;
+  if (needsWebSearch(q)) {
+    webResult = await withTimeout(searchWeb(q).catch(() => null), 12000);
+  }
+  const webContext = webResult
+    ? "\n\nHasil pencarian web (gunakan sebagai referensi tambahan, rangkum dengan bahasa sendiri, jangan copy-paste mentah):\n" +
+      webResult
+    : "";
+
+  const fullPrompt = `${persona}${knowledge}${catalog}${commandCatalog}${webContext}${context}\n\nUser: ${q}`;
+
+  let answer = null;
+
+  if (model.startsWith("gemini")) {
+    // Gemini models (gemini-flash / gemini-pro)
+    try {
+      answer = await askGemini(fullPrompt, model);
+    } catch (err) {
+      console.error(`Gemini (${model}) gagal:`, err?.message || err);
+    }
+
+    // Fallback ke Ai4Chat bila Gemini gagal
+    if (!answer) {
+      try {
+        answer = await Ai4Chat(fullPrompt);
+      } catch (err) {
+        console.error("Ai4Chat fallback gagal:", err.message);
+      }
+    }
+
+    // Fallback terakhir ke Groq (provider independen) bila keduanya gagal
+    if (!answer) {
+      try {
+        answer = await askGroq(fullPrompt, "groq-llama");
+      } catch (err) {
+        console.error("Groq fallback gagal:", err?.message || err);
+      }
+    }
+  } else if (model.startsWith("groq")) {
+    // Groq models (groq-llama / groq-fast)
+    try {
+      answer = await askGroq(fullPrompt, model);
+    } catch (err) {
+      console.error(`Groq (${model}) gagal:`, err?.message || err);
+    }
+
+    // Fallback ke Ai4Chat bila Groq gagal
+    if (!answer) {
+      try {
+        answer = await Ai4Chat(fullPrompt);
+      } catch (err) {
+        console.error("Ai4Chat fallback gagal:", err.message);
+      }
+    }
+
+    if (!answer) {
+      try {
+        answer = await askPublicAI(fullPrompt);
+      } catch (err) {
+        console.error("PublicAI fallback gagal:", err.message);
+      }
+    }
+  } else {
+    // Default model (AI default bot): Ai4Chat → PublicAI → Groq
+    try {
+      answer = await Ai4Chat(fullPrompt);
+    } catch (err) {
+      console.error("Ai4Chat gagal:", err.message);
+    }
+
+    if (!answer) {
+      try {
+        answer = await askPublicAI(fullPrompt);
+      } catch (err) {
+        console.error("PublicAI gagal:", err.message);
+      }
+    }
+
+    // Fallback terakhir ke Groq (provider independen) bila keduanya gagal
+    if (!answer) {
+      try {
+        answer = await askGroq(fullPrompt, "groq-llama");
+      } catch (err) {
+        console.error("Groq fallback gagal:", err?.message || err);
+      }
+    }
+  }
+
+  // Simpan ke memori bila berhasil
+  if (userId && answer) {
+    addMessage(userId, "user", q);
+    addMessage(userId, "assistant", answer);
+  }
+
+  return answer;
+}
+
+export default async function handler(lenwy) {
+  const { command, q, LenwyText, LenwyWait, normalizedSender, commands } = lenwy;
+
+  if (command === "resetai") {
+    clearHistory(normalizedSender);
+    return LenwyText("🧹 Memori percakapan AI sudah direset. Mulai obrolan baru!");
+  }
+
+  if (command !== "ai") return;
+  if (!q) return LenwyText("☘️ *Contoh:* .ai Apa itu JavaScript?");
+
+  LenwyWait();
+
+  const answer = await getAIAnswer(q, normalizedSender, commands);
+
+  if (!answer) {
+    return LenwyText("⚠️ Semua sumber AI sedang tidak merespon. Coba lagi nanti.");
+  }
+
+  await LenwyText(answer);
 }
