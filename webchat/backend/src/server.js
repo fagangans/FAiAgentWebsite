@@ -30,6 +30,8 @@ app.use(express.json({ limit: "100kb" }));
 app.use("/widget", express.static(path.join(__dirname, "../../widget")));
 app.use("/admin", express.static(path.join(__dirname, "../../admin")));
 app.use("/client", express.static(path.join(__dirname, "../../client")));
+// Dashboard unified: satu pintu login di root domain, menu menyesuaikan role (admin/client).
+app.use("/", express.static(path.join(__dirname, "../../dashboard")));
 
 app.get("/health", (req, res) => res.json({ status: "ok" }));
 

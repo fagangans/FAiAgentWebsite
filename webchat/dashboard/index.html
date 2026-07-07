@@ -1,0 +1,1277 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FaiAgent Webchat Dashboard</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: #f6f3ee; color: #2b2b2b; min-height: 100vh; }
+
+  /* Login */
+  #login-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(160deg, #ff7a00, #ff5500); }
+  .login-box { background: #fff; border-radius: 16px; padding: 40px; width: 360px; box-shadow: 0 10px 40px rgba(0,0,0,.15); }
+  .login-box h1 { font-size: 20px; margin-bottom: 4px; color: #ff5500; }
+  .login-box p.sub { font-size: 12px; color: #a08a76; margin-bottom: 22px; }
+  .login-box input { width: 100%; padding: 12px; border: 1px solid #f0d9c4; border-radius: 8px; background: #fff; color: #2b2b2b; font-size: 14px; margin-bottom: 14px; outline: none; }
+  .login-box input:focus { border-color: #ff7a00; }
+  .login-box .login-error { color: #d92d20; font-size: 13px; margin-bottom: 12px; display: none; }
+
+  /* Buttons */
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px; border: none; border-radius: 999px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity .2s; }
+  .btn:hover { opacity: .88; }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .btn-orange { background: #ff5500; color: #fff; }
+  .btn-outline { background: transparent; border: 1px solid #f0d9c4; color: #2b2b2b; }
+  .btn-outline-light { background: transparent; border: 1px solid rgba(255,255,255,.4); color: #fff; }
+  .btn-danger { background: transparent; border: 1px solid #d92d20; color: #d92d20; }
+  .btn-sm { padding: 6px 14px; font-size: 12px; }
+
+  /* App shell */
+  #app-shell { display: none; min-height: 100vh; }
+  #sidebar { width: 250px; flex-shrink: 0; background: linear-gradient(180deg, #ff6a00, #ff4d00); color: #fff; display: flex; flex-direction: column; padding: 22px 16px; position: fixed; top: 0; left: 0; bottom: 0; overflow-y: auto; }
+  #app-shell.flex { display: flex; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 8px 22px; border-bottom: 1px solid rgba(255,255,255,.2); margin-bottom: 18px; }
+  .brand-icon { width: 40px; height: 40px; border-radius: 12px; background: rgba(255,255,255,.18); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+  .brand h1 { font-size: 15px; line-height: 1.3; }
+  .brand span { font-size: 11px; opacity: .8; }
+
+  #sidebar-nav { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; color: rgba(255,255,255,.85); font-size: 13px; font-weight: 600; cursor: pointer; border: none; background: transparent; text-align: left; width: 100%; }
+  .nav-item:hover { background: rgba(255,255,255,.12); }
+  .nav-item.active { background: #fff; color: #ff5500; }
+  .nav-item .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+
+  .sidebar-user { border-top: 1px solid rgba(255,255,255,.2); padding-top: 14px; margin-top: 14px; }
+  .user-name { font-size: 13px; font-weight: 700; }
+  .user-role { font-size: 11px; opacity: .8; text-transform: capitalize; margin-top: 2px; }
+
+  #main-content { margin-left: 250px; flex: 1; padding: 26px 30px 60px; max-width: 1100px; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; }
+  .topbar h2 { font-size: 21px; color: #2b2b2b; }
+  .topbar .page-date { font-size: 12px; color: #a08a76; }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* Stat cards */
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .stat-card { background: #fff; border-radius: 14px; padding: 18px 20px; box-shadow: 0 2px 10px rgba(255,85,0,.06); }
+  .stat-card .stat-label { font-size: 12px; color: #8a6a52; margin-bottom: 8px; }
+  .stat-card .stat-value { font-size: 26px; font-weight: 700; color: #ff5500; }
+  .stat-card .stat-sub { font-size: 11px; color: #a08a76; margin-top: 4px; }
+
+  .card { background: #fff; border-radius: 16px; padding: 24px; margin-bottom: 24px; box-shadow: 0 2px 10px rgba(255,85,0,.06); }
+  .card h2 { font-size: 16px; margin-bottom: 16px; color: #ff5500; }
+  .card p.hint { font-size: 12px; color: #a08a76; margin-bottom: 14px; }
+
+  .form-row { margin-bottom: 14px; }
+  .form-row label { display: block; font-size: 13px; color: #6b5340; margin-bottom: 4px; }
+  .form-row input, .form-row textarea, .form-row select { width: 100%; padding: 10px; border: 1px solid #f0d9c4; border-radius: 8px; background: #fff; color: #2b2b2b; font-size: 14px; outline: none; font-family: inherit; }
+  .form-row textarea { height: 120px; resize: vertical; }
+  .form-row input:focus, .form-row textarea:focus, .form-row select:focus { border-color: #ff7a00; }
+  .form-row input[type="color"] { padding: 4px; height: 42px; cursor: pointer; }
+  .row-2 { display: flex; gap: 16px; }
+  .row-2 > div { flex: 1; }
+
+  .widget-preview-bubble { position: absolute; bottom: 16px; width: 48px; height: 48px; border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 2px 10px rgba(0,0,0,.2); }
+  .preview-box { position: relative; height: 110px; background: #f6f6f6; border-radius: 12px; border: 1px dashed #e0c4a4; margin-top: 6px; }
+
+  /* Conversations */
+  .conv-list { display: flex; flex-direction: column; gap: 8px; }
+  .conv-item { padding: 12px 14px; border-radius: 10px; border: 1px solid #f3e3d3; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .conv-item:hover { background: #fff8f0; }
+  .conv-item.important { border-color: #ff5500; background: #fff4ea; }
+  .conv-item .conv-msg { font-size: 13px; color: #5a4a3c; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  .conv-item .conv-meta { font-size: 11px; color: #a08a76; flex-shrink: 0; }
+  .badge-important { background: #ff5500; color: #fff; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px; flex-shrink: 0; }
+  .empty-msg { color: #a08a76; font-size: 14px; text-align: center; padding: 24px; }
+
+  /* CRM leads */
+  .status-filters { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .filter-pill { padding: 7px 16px; border-radius: 999px; border: 1px solid #f0d9c4; background: #fff; color: #6b5340; font-size: 12px; font-weight: 600; cursor: pointer; }
+  .filter-pill.active { background: #ff5500; color: #fff; border-color: #ff5500; }
+
+  .lead-list { display: flex; flex-direction: column; gap: 10px; }
+  .lead-card { padding: 14px 16px; border-radius: 12px; border: 1px solid #f3e3d3; cursor: pointer; }
+  .lead-card:hover { background: #fff8f0; }
+  .lead-card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .lead-date { font-size: 11px; color: #a08a76; }
+  .lead-contact { font-size: 13px; color: #5a4a3c; margin-bottom: 4px; }
+  .lead-preview { font-size: 12px; color: #a08a76; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .badge-status { font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
+  .badge-baru { background: #ffe3cc; color: #ff5500; }
+  .badge-dihubungi { background: #fff3cd; color: #a87b00; }
+  .badge-selesai { background: #d6f5df; color: #1a7d3a; }
+
+  /* Statistik (CSS-only bar charts) */
+  .chart-title { font-size: 13px; color: #6b5340; margin: 18px 0 8px; font-weight: 600; }
+  .chart-title:first-child { margin-top: 0; }
+  .chart-legend { display: flex; gap: 14px; font-size: 11px; color: #6b5340; margin-bottom: 10px; }
+  .legend-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+  .bar-chart { display: flex; align-items: flex-end; gap: 4px; height: 120px; }
+  .bar-col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; flex: 1; min-width: 0; }
+  .bar-col .bar { width: 100%; background: linear-gradient(180deg,#ff7a00,#ff5500); border-radius: 4px 4px 0 0; min-height: 2px; }
+  .bar-col .bar-label { font-size: 9px; color: #a08a76; margin-top: 4px; white-space: nowrap; }
+  .bar-col-double { display: flex; gap: 2px; align-items: flex-end; height: 100%; width: 100%; justify-content: center; }
+  .bar-col-double .bar { flex: 1; }
+  .bar-secondary { background: linear-gradient(180deg,#ffd9b3,#ffae6b) !important; }
+
+  /* Sites table (admin) */
+  .sites-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .sites-table th { text-align: left; padding: 8px 10px; border-bottom: 1px solid #f0d9c4; color: #a08a76; font-weight: 600; }
+  .sites-table td { padding: 10px; border-bottom: 1px solid #f6ece0; }
+  .sites-table tr:hover td { background: #fff8f0; }
+  .badge-active { background: #d6f5df; color: #1a7d3a; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+  .badge-inactive { background: #fde2e1; color: #d92d20; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+  .wk-text { font-family: monospace; font-size: 11px; color: #a8631f; cursor: pointer; }
+  .wk-text:hover { text-decoration: underline; }
+  .btn-row { display: flex; gap: 6px; }
+
+  /* Modal */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: none; align-items: center; justify-content: center; z-index: 10000; padding: 20px; }
+  .modal-overlay.open { display: flex; }
+  .modal-box { background: #fff; border-radius: 16px; padding: 24px; width: 500px; max-width: 100%; max-height: 85vh; overflow-y: auto; }
+  .modal-box h3 { font-size: 16px; color: #ff5500; margin-bottom: 14px; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+  .msg-bubble { margin-bottom: 8px; padding: 8px 12px; border-radius: 12px; max-width: 85%; line-height: 1.4; font-size: 13px; }
+  .msg-user { background: #ff5500; color: #fff; margin-left: auto; }
+  .msg-assistant { background: #f3e3d3; color: #2b2b2b; }
+  .msg-important { outline: 2px solid #d92d20; }
+
+  .script-section { margin-bottom: 16px; }
+  .script-section h4 { font-size: 13px; color: #ff5500; margin-bottom: 6px; font-weight: 600; }
+  .script-section pre { background: #fff8f0; border: 1px solid #f0d9c4; border-radius: 8px; padding: 12px; font-size: 11px; overflow-x: auto; color: #a8631f; white-space: pre-wrap; word-break: break-all; margin-bottom: 6px; line-height: 1.6; }
+  .script-section .copy-row { display: flex; justify-content: flex-end; }
+  .result-note { margin-top: 14px; padding: 10px 12px; background: #fde2e1; border-radius: 8px; border-left: 3px solid #d92d20; font-size: 12px; color: #6b5340; }
+
+  .toast { position: fixed; bottom: 20px; right: 20px; background: #ff5500; color: #fff; padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; z-index: 9999; opacity: 0; transition: opacity .3s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+
+  @media (max-width: 780px) {
+    #sidebar { position: static; width: 100%; }
+    #main-content { margin-left: 0; }
+    #app-shell.flex { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Login screen -->
+<div id="login-screen">
+  <div class="login-box">
+    <h1>FaiAgent Webchat</h1>
+    <p class="sub">Login dengan akun admin atau akun klien kamu</p>
+    <div class="login-error" id="login-error">Username atau password salah.</div>
+    <input type="text" id="username-input" placeholder="Username" autofocus>
+    <input type="password" id="password-input" placeholder="Password">
+    <button class="btn btn-orange" style="width:100%" onclick="doLogin()">Masuk</button>
+  </div>
+</div>
+
+<!-- App shell -->
+<div id="app-shell">
+  <aside id="sidebar">
+    <div class="brand">
+      <div class="brand-icon">🤖</div>
+      <div>
+        <h1>FaiAgent Webchat</h1>
+        <span>Dashboard</span>
+      </div>
+    </div>
+    <nav id="sidebar-nav"></nav>
+    <div class="sidebar-user">
+      <div class="user-name" id="sidebar-username"></div>
+      <div class="user-role" id="sidebar-role-badge"></div>
+      <button class="btn btn-outline-light btn-sm" style="width:100%; margin-top:10px;" onclick="doLogout()">Logout</button>
+    </div>
+  </aside>
+
+  <main id="main-content">
+    <div class="topbar">
+      <h2 id="page-title">Dashboard</h2>
+      <span class="page-date" id="page-date"></span>
+    </div>
+
+    <!-- ================= ADMIN: Dashboard ================= -->
+    <section class="panel" id="panel-admin-dashboard">
+      <div class="stat-grid">
+        <div class="stat-card"><div class="stat-label">Total Website</div><div class="stat-value" id="adm-stat-total-sites">0</div></div>
+        <div class="stat-card"><div class="stat-label">Website Aktif</div><div class="stat-value" id="adm-stat-active-sites">0</div></div>
+        <div class="stat-card"><div class="stat-label">Token Masuk</div><div class="stat-value" id="adm-stat-tokens-in">0</div></div>
+        <div class="stat-card"><div class="stat-label">Token Keluar</div><div class="stat-value" id="adm-stat-tokens-out">0</div></div>
+      </div>
+      <div class="card">
+        <h2>Website Terbaru</h2>
+        <div id="adm-dashboard-recent"><div class="empty-msg">Memuat...</div></div>
+      </div>
+    </section>
+
+    <!-- ================= ADMIN: Kelola Website ================= -->
+    <section class="panel" id="panel-admin-sites">
+      <div class="card">
+        <h2>Tambah Website Baru</h2>
+        <div class="form-row">
+          <label>Nama Website *</label>
+          <input type="text" id="site-name" placeholder="Contoh: Toko Online Sepatu">
+        </div>
+        <div class="form-row">
+          <label>Domain (opsional)</label>
+          <input type="text" id="site-domain" placeholder="Contoh: tokosepatu.com">
+        </div>
+        <div class="form-row">
+          <label>System Prompt (instruksi karakter AI, kosongkan untuk pakai template default)</label>
+          <textarea id="site-prompt" placeholder="Kosongkan untuk memakai template customer service default"></textarea>
+        </div>
+        <div class="form-row">
+          <label>AI Provider</label>
+          <select id="site-provider">
+            <option value="ai4chat">AI4Chat (gratis, tanpa API key, default)</option>
+            <option value="gemini">Gemini (Google AI Studio, butuh API key)</option>
+            <option value="qwen">Qwen via OpenRouter (butuh API key)</option>
+            <option value="claude">Claude (Anthropic, butuh API key)</option>
+          </select>
+        </div>
+        <button class="btn btn-orange" id="add-btn" onclick="addSite()">Tambah Website</button>
+      </div>
+
+      <div class="card">
+        <h2>Website Terdaftar</h2>
+        <div id="sites-list"><div class="empty-msg">Memuat...</div></div>
+      </div>
+    </section>
+
+    <!-- ================= ADMIN: Pemakaian Token ================= -->
+    <section class="panel" id="panel-admin-usage">
+      <div class="card">
+        <h2>Pemakaian Token AI per Website</h2>
+        <div id="usage-list"><div class="empty-msg">Memuat...</div></div>
+      </div>
+    </section>
+
+    <!-- ================= CLIENT: Dashboard ================= -->
+    <section class="panel" id="panel-client-dashboard">
+      <div class="stat-grid">
+        <div class="stat-card"><div class="stat-label">Total Percakapan</div><div class="stat-value" id="cl-stat-conversations">0</div></div>
+        <div class="stat-card"><div class="stat-label">Lead Baru</div><div class="stat-value" id="cl-stat-leads-baru">0</div></div>
+        <div class="stat-card"><div class="stat-label">Pesan Hari Ini</div><div class="stat-value" id="cl-stat-messages-today">0</div></div>
+        <div class="stat-card"><div class="stat-label">Pesan 14 Hari</div><div class="stat-value" id="cl-stat-messages-14d">0</div></div>
+      </div>
+      <div class="card">
+        <h2>Ringkasan</h2>
+        <p class="hint">Ringkasan performa chatbot kamu. Buka menu <strong>CRM Leads</strong> untuk follow-up calon pelanggan, atau <strong>Statistik</strong> untuk lihat tren lengkap.</p>
+      </div>
+    </section>
+
+    <!-- ================= CLIENT: Percakapan ================= -->
+    <section class="panel" id="panel-client-conversations">
+      <div class="card">
+        <h2>Semua Percakapan</h2>
+        <p class="hint">Percakapan dengan tanda <strong style="color:#ff5500">Penting</strong> sudah otomatis masuk ke CRM Leads.</p>
+        <div id="conv-list" class="conv-list"><div class="empty-msg">Memuat...</div></div>
+      </div>
+    </section>
+
+    <!-- ================= CLIENT: CRM Leads ================= -->
+    <section class="panel" id="panel-client-leads">
+      <div class="card">
+        <h2>Leads</h2>
+        <p class="hint">Lead dibuat otomatis saat pengunjung kirim pesan yang mengandung kontak, minat beli, booking, atau komplain. Klik lead untuk lihat riwayat chat, ubah status, dan tambah catatan.</p>
+        <div class="status-filters">
+          <button class="filter-pill active" data-status="" onclick="filterLeads('')">Semua</button>
+          <button class="filter-pill" data-status="baru" onclick="filterLeads('baru')">Baru</button>
+          <button class="filter-pill" data-status="dihubungi" onclick="filterLeads('dihubungi')">Dihubungi</button>
+          <button class="filter-pill" data-status="selesai" onclick="filterLeads('selesai')">Selesai</button>
+        </div>
+        <div id="lead-list" class="lead-list"><div class="empty-msg">Memuat...</div></div>
+      </div>
+    </section>
+
+    <!-- ================= CLIENT: Statistik ================= -->
+    <section class="panel" id="panel-client-stats">
+      <div class="card">
+        <h2>Statistik</h2>
+        <div class="chart-title">Volume Pesan & Percakapan (14 hari terakhir)</div>
+        <div class="chart-legend">
+          <span><span class="legend-dot" style="background:#ff5500;"></span>Pesan</span>
+          <span><span class="legend-dot" style="background:#ffae6b;"></span>Percakapan</span>
+        </div>
+        <div class="bar-chart" id="chart-daily"></div>
+
+        <div class="chart-title">Jam Tersibuk</div>
+        <div class="bar-chart" id="chart-hours"></div>
+
+        <div class="chart-title">Hari Tersibuk</div>
+        <div class="bar-chart" id="chart-days"></div>
+      </div>
+    </section>
+
+    <!-- ================= CLIENT: Pengaturan Chatbot ================= -->
+    <section class="panel" id="panel-client-bot">
+      <div class="card">
+        <h2>Instruksi untuk AI Chatbot</h2>
+        <p class="hint">Tulis semua info tentang bisnis kamu di sini (produk, harga, jam buka, kontak). AI hanya tahu apa yang kamu tulis.</p>
+        <div class="form-row">
+          <textarea id="prompt-input" placeholder="Contoh: Kamu adalah asisten Toko Sepatu XYZ. Produk: Nike Air Max (Rp 1.5jt)..."></textarea>
+        </div>
+        <button class="btn btn-orange btn-sm" id="prompt-save-btn" onclick="savePrompt()">Simpan Instruksi</button>
+      </div>
+    </section>
+
+    <!-- ================= CLIENT: Tampilan Widget ================= -->
+    <section class="panel" id="panel-client-widget">
+      <div class="card">
+        <h2>Tampilan Widget Chat</h2>
+        <div class="row-2">
+          <div class="form-row">
+            <label>Warna Bubble</label>
+            <input type="color" id="widget-color-input" value="#c9a84c" oninput="updatePreview()">
+          </div>
+          <div class="form-row">
+            <label>Posisi</label>
+            <select id="widget-position-input" onchange="updatePreview()">
+              <option value="right">Kanan</option>
+              <option value="left">Kiri</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Pesan Sapaan Pertama</label>
+          <input type="text" id="widget-greeting-input" placeholder="Halo! Ada yang bisa saya bantu?">
+        </div>
+        <label style="display:block; font-size:13px; color:#6b5340; margin-bottom:4px;">Pratinjau</label>
+        <div class="preview-box" id="preview-box">
+          <div class="widget-preview-bubble" id="preview-bubble">💬</div>
+        </div>
+        <button class="btn btn-orange btn-sm" id="widget-save-btn" onclick="saveWidget()" style="margin-top:16px;">Simpan Tampilan</button>
+      </div>
+    </section>
+
+    <!-- ================= SHARED: Pengaturan Akun ================= -->
+    <section class="panel" id="panel-settings">
+      <div class="card">
+        <h2>Akun Saya</h2>
+        <div class="form-row">
+          <label>Username</label>
+          <input type="text" id="settings-username" disabled>
+        </div>
+        <div class="form-row">
+          <label>Role</label>
+          <input type="text" id="settings-role" disabled>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Ganti Password</h2>
+        <div class="form-row">
+          <label>Password Lama</label>
+          <input type="password" id="settings-current-password">
+        </div>
+        <div class="form-row">
+          <label>Password Baru (minimal 8 karakter)</label>
+          <input type="password" id="settings-new-password">
+        </div>
+        <button class="btn btn-orange btn-sm" id="settings-save-btn" onclick="changeOwnPassword()">Simpan Password Baru</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Edit site modal (admin) -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal-box">
+    <h3>Edit Website</h3>
+    <div class="form-row">
+      <label>Nama Website</label>
+      <input type="text" id="edit-name">
+    </div>
+    <div class="form-row">
+      <label>Domain (opsional)</label>
+      <input type="text" id="edit-domain">
+    </div>
+    <div class="form-row">
+      <label>System Prompt (instruksi karakter AI)</label>
+      <textarea id="edit-prompt" style="height:120px"></textarea>
+    </div>
+    <div class="form-row">
+      <label>AI Provider</label>
+      <select id="edit-provider">
+        <option value="ai4chat">AI4Chat (gratis, tanpa API key)</option>
+        <option value="gemini">Gemini</option>
+        <option value="qwen">Qwen via OpenRouter</option>
+        <option value="claude">Claude</option>
+      </select>
+    </div>
+
+    <div class="script-section" style="margin-top:20px; border-top:1px solid #f0d9c4; padding-top:16px;">
+      <h4>Akun Login Klien</h4>
+      <p class="hint" style="margin-bottom:10px;">Klien pakai akun ini untuk login ke dashboard mereka sendiri (atur prompt bisnis, kustomisasi widget, lihat inbox CRM). Klien tidak bisa membuat akun lain.</p>
+      <div id="edit-account-existing" style="display:none; margin-bottom:10px; font-size:13px; color:#6b5340;">
+        Username aktif: <strong id="edit-account-username" style="color:#2b2b2b"></strong>
+      </div>
+      <div class="form-row">
+        <label>Username</label>
+        <input type="text" id="edit-account-username-input" placeholder="username klien">
+      </div>
+      <div class="form-row">
+        <label>Password <span id="edit-account-pw-hint" style="color:#a08a76"></span></label>
+        <input type="password" id="edit-account-password-input" placeholder="Kosongkan jika tidak ingin diubah">
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-orange btn-sm" id="edit-account-save-btn" onclick="saveClientAccount()">Simpan Akun</button>
+        <button class="btn btn-danger btn-sm" id="edit-account-delete-btn" style="display:none;" onclick="deleteClientAccount()">Hapus Akun</button>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-outline btn-sm" onclick="closeEditModal()">Batal</button>
+      <button class="btn btn-orange btn-sm" id="edit-save-btn" onclick="saveEdit()">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- View Script modal (admin) -->
+<div class="modal-overlay" id="script-modal">
+  <div class="modal-box">
+    <h3>Kode Embed Website</h3>
+    <p style="font-size:12px; color:#a08a76; margin-bottom:12px;">Website: <strong id="script-site-name" style="color:#2b2b2b"></strong></p>
+
+    <div class="script-section">
+      <h4>HTML Biasa — tempel sebelum &lt;/body&gt;</h4>
+      <pre id="script-html-code"></pre>
+      <div class="copy-row"><button class="btn btn-orange btn-sm" onclick="copyEl('script-html-code')">Salin HTML</button></div>
+    </div>
+
+    <div class="script-section">
+      <h4>Next.js (App Router) — di layout.tsx</h4>
+      <p style="font-size:11px; color:#a08a76; margin-bottom:6px;">1. Tambahkan import di bagian atas file:</p>
+      <pre id="script-nextjs-import"></pre>
+      <div class="copy-row"><button class="btn btn-orange btn-sm" onclick="copyEl('script-nextjs-import')">Salin Import</button></div>
+    </div>
+
+    <div class="script-section">
+      <p style="font-size:11px; color:#a08a76; margin-bottom:6px;">2. Tempel komponen ini di dalam &lt;body&gt;, sebelum &lt;/body&gt;:</p>
+      <pre id="script-nextjs-code"></pre>
+      <div class="copy-row"><button class="btn btn-orange btn-sm" onclick="copyEl('script-nextjs-code')">Salin Komponen</button></div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-outline btn-sm" onclick="closeScriptModal()">Tutup</button>
+    </div>
+  </div>
+</div>
+
+<!-- Shown once right after a new site is created (export token is never retrievable again after this) -->
+<div class="modal-overlay" id="new-site-modal">
+  <div class="modal-box">
+    <h3>Website Berhasil Didaftarkan</h3>
+    <p class="hint">Kode embed sudah bisa dilihat kapan saja lewat tombol "Script" di tabel Website Terdaftar. Export Token di bawah ini <strong>hanya ditampilkan sekarang</strong> — simpan baik-baik.</p>
+
+    <div class="script-section">
+      <h4>Kode Embed (tempel di website)</h4>
+      <pre id="new-site-script"></pre>
+      <div class="copy-row"><button class="btn btn-orange btn-sm" onclick="copyEl('new-site-script')">Salin Kode</button></div>
+    </div>
+
+    <div class="result-note">
+      <strong>Export Token (RAHASIA):</strong> <code id="new-site-export-token"></code>
+      <br>Dipakai untuk export riwayat chat ke CSV. Jangan ditempel di kode website atau dibagikan ke publik.
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-orange btn-sm" onclick="closeNewSiteModal()">Tutup</button>
+    </div>
+  </div>
+</div>
+
+<!-- Conversation messages modal (client) -->
+<div class="modal-overlay" id="messages-modal">
+  <div class="modal-box">
+    <h3>Riwayat Percakapan</h3>
+    <div id="messages-list"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline btn-sm" onclick="closeMessagesModal()">Tutup</button>
+    </div>
+  </div>
+</div>
+
+<!-- Lead detail modal (client) -->
+<div class="modal-overlay" id="lead-modal">
+  <div class="modal-box">
+    <h3>Detail Lead</h3>
+    <div class="form-row">
+      <label>Kontak</label>
+      <div id="lead-contact-display" style="font-size:13px; color:#5a4a3c;"></div>
+    </div>
+    <div class="form-row">
+      <label>Status</label>
+      <select id="lead-status-input">
+        <option value="baru">Baru</option>
+        <option value="dihubungi">Dihubungi</option>
+        <option value="selesai">Selesai</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>Catatan</label>
+      <textarea id="lead-notes-input" placeholder="Catatan follow-up untuk lead ini..." style="height:80px;"></textarea>
+    </div>
+    <label style="display:block; font-size:13px; color:#6b5340; margin-bottom:6px;">Riwayat Chat</label>
+    <div id="lead-messages-list"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline btn-sm" onclick="closeLeadModal()">Tutup</button>
+      <button class="btn btn-orange btn-sm" id="lead-save-btn" onclick="saveLead()">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_BASE = window.location.origin;
+const STATUS_LABELS = { baru: "Baru", dihubungi: "Dihubungi", selesai: "Selesai" };
+const DAY_SHORT = { Minggu: "Min", Senin: "Sen", Selasa: "Sel", Rabu: "Rab", Kamis: "Kam", Jumat: "Jum", Sabtu: "Sab" };
+
+const ADMIN_MENU = [
+  { key: "admin-dashboard", label: "Dashboard", icon: "📊" },
+  { key: "admin-sites", label: "Kelola Website", icon: "🌐" },
+  { key: "admin-usage", label: "Pemakaian Token", icon: "📈" },
+  { key: "settings", label: "Pengaturan Akun", icon: "⚙️" },
+];
+const CLIENT_MENU = [
+  { key: "client-dashboard", label: "Dashboard", icon: "📊" },
+  { key: "client-conversations", label: "Percakapan", icon: "💬" },
+  { key: "client-leads", label: "CRM Leads", icon: "🎯" },
+  { key: "client-stats", label: "Statistik", icon: "📈" },
+  { key: "client-bot", label: "Pengaturan Chatbot", icon: "🤖" },
+  { key: "client-widget", label: "Tampilan Widget", icon: "🎨" },
+  { key: "settings", label: "Pengaturan Akun", icon: "⚙️" },
+];
+const PAGE_TITLES = {
+  "admin-dashboard": "Dashboard", "admin-sites": "Kelola Website", "admin-usage": "Pemakaian Token",
+  "client-dashboard": "Dashboard", "client-conversations": "Percakapan", "client-leads": "CRM Leads",
+  "client-stats": "Statistik", "client-bot": "Pengaturan Chatbot", "client-widget": "Tampilan Widget",
+  "settings": "Pengaturan Akun",
+};
+
+let authToken = "";
+let authRole = "";
+let currentPanel = "";
+let currentLeadFilter = "";
+let currentLeadId = null;
+
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2200);
+}
+
+function authHeaders(extra) {
+  return Object.assign({ Authorization: "Bearer " + authToken }, extra || {});
+}
+
+function escapeHtml(str) {
+  const d = document.createElement("div");
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+function copyEl(elId) {
+  const text = document.getElementById(elId).textContent;
+  navigator.clipboard.writeText(text).then(() => showToast("Kode disalin!"));
+}
+
+function copyText(text) {
+  navigator.clipboard.writeText(text).then(() => showToast("Disalin!"));
+}
+
+// ---------- Login / logout ----------
+
+function doLogin() {
+  const username = document.getElementById("username-input").value.trim();
+  const password = document.getElementById("password-input").value;
+  if (!username || !password) return;
+
+  fetch(API_BASE + "/api/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  })
+    .then((r) => { if (!r.ok) throw new Error("Unauthorized"); return r.json(); })
+    .then((data) => {
+      authToken = data.token;
+      authRole = data.role;
+      sessionStorage.setItem("wc_token", authToken);
+      sessionStorage.setItem("wc_role", authRole);
+      enterDashboard();
+    })
+    .catch(() => {
+      document.getElementById("login-error").style.display = "block";
+      document.getElementById("password-input").value = "";
+    });
+}
+
+function doLogout() {
+  sessionStorage.removeItem("wc_token");
+  sessionStorage.removeItem("wc_role");
+  authToken = "";
+  authRole = "";
+  document.getElementById("app-shell").style.display = "none";
+  document.getElementById("app-shell").classList.remove("flex");
+  document.getElementById("login-screen").style.display = "flex";
+  document.getElementById("username-input").value = "";
+  document.getElementById("password-input").value = "";
+  document.getElementById("login-error").style.display = "none";
+}
+
+function enterDashboard() {
+  document.getElementById("login-screen").style.display = "none";
+  document.getElementById("app-shell").style.display = "flex";
+  document.getElementById("app-shell").classList.add("flex");
+  document.getElementById("page-date").textContent = new Date().toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+
+  buildSidebar();
+  loadMeIntoSidebar();
+
+  const menu = authRole === "admin" ? ADMIN_MENU : CLIENT_MENU;
+  switchPanel(menu[0].key);
+}
+
+function buildSidebar() {
+  const menu = authRole === "admin" ? ADMIN_MENU : CLIENT_MENU;
+  const nav = document.getElementById("sidebar-nav");
+  nav.innerHTML = "";
+  menu.forEach((item) => {
+    const btn = document.createElement("button");
+    btn.className = "nav-item";
+    btn.id = "nav-" + item.key;
+    btn.innerHTML = '<span class="nav-icon">' + item.icon + "</span><span>" + item.label + "</span>";
+    btn.onclick = () => switchPanel(item.key);
+    nav.appendChild(btn);
+  });
+}
+
+function loadMeIntoSidebar() {
+  fetch(API_BASE + "/api/me", { headers: authHeaders() })
+    .then((r) => r.json())
+    .then((user) => {
+      document.getElementById("sidebar-username").textContent = user.username;
+      document.getElementById("sidebar-role-badge").textContent = user.role === "admin" ? "Master Admin" : "Klien";
+      document.getElementById("settings-username").value = user.username;
+      document.getElementById("settings-role").value = user.role === "admin" ? "Master Admin" : "Klien";
+    })
+    .catch(() => {});
+}
+
+function switchPanel(key) {
+  currentPanel = key;
+  document.querySelectorAll(".panel").forEach((p) => p.classList.remove("active"));
+  document.querySelectorAll(".nav-item").forEach((n) => n.classList.remove("active"));
+  document.getElementById("panel-" + key).classList.add("active");
+  const navBtn = document.getElementById("nav-" + key);
+  if (navBtn) navBtn.classList.add("active");
+  document.getElementById("page-title").textContent = PAGE_TITLES[key] || "Dashboard";
+
+  if (key === "admin-dashboard") loadAdminDashboard();
+  if (key === "admin-sites") { loadSites(); }
+  if (key === "admin-usage") loadUsage();
+  if (key === "client-dashboard") loadClientDashboard();
+  if (key === "client-conversations") loadConversations();
+  if (key === "client-leads") loadLeads(currentLeadFilter);
+  if (key === "client-stats") loadAnalytics();
+  if (key === "client-bot" || key === "client-widget") loadClientMe();
+  if (key === "settings") { /* username/role already loaded on login */ }
+}
+
+// ---------- Settings (shared) ----------
+
+function changeOwnPassword() {
+  const currentPassword = document.getElementById("settings-current-password").value;
+  const newPassword = document.getElementById("settings-new-password").value;
+  if (!currentPassword || !newPassword) { showToast("Isi password lama dan password baru"); return; }
+
+  const btn = document.getElementById("settings-save-btn");
+  btn.disabled = true;
+  fetch(API_BASE + "/api/me/password", {
+    method: "PATCH",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ currentPassword, newPassword }),
+  })
+    .then((r) => { if (!r.ok) return r.json().then((d) => { throw new Error(d.error); }); return r.json(); })
+    .then(() => {
+      showToast("Password berhasil diubah");
+      document.getElementById("settings-current-password").value = "";
+      document.getElementById("settings-new-password").value = "";
+    })
+    .catch((err) => showToast("Gagal: " + err.message))
+    .finally(() => { btn.disabled = false; });
+}
+
+// ---------- Admin: Dashboard ringkasan ----------
+
+function loadAdminDashboard() {
+  Promise.all([
+    fetch(API_BASE + "/api/admin/sites", { headers: authHeaders() }).then((r) => r.json()),
+    fetch(API_BASE + "/api/admin/usage", { headers: authHeaders() }).then((r) => r.json()),
+  ])
+    .then(([sites, usage]) => {
+      document.getElementById("adm-stat-total-sites").textContent = sites.length;
+      document.getElementById("adm-stat-active-sites").textContent = sites.filter((s) => s.is_active).length;
+      document.getElementById("adm-stat-tokens-in").textContent = usage.total.tokens_in.toLocaleString("id-ID");
+      document.getElementById("adm-stat-tokens-out").textContent = usage.total.tokens_out.toLocaleString("id-ID");
+
+      const el = document.getElementById("adm-dashboard-recent");
+      if (!sites.length) { el.innerHTML = '<div class="empty-msg">Belum ada website terdaftar.</div>'; return; }
+      let html = '<table class="sites-table"><thead><tr><th>Nama</th><th>Provider</th><th>Status</th><th>Dibuat</th></tr></thead><tbody>';
+      sites.slice(0, 5).forEach((s) => {
+        const badge = s.is_active ? '<span class="badge-active">Aktif</span>' : '<span class="badge-inactive">Nonaktif</span>';
+        const date = new Date(s.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+        html += "<tr><td>" + escapeHtml(s.name) + "</td><td>" + escapeHtml(s.ai_provider || "ai4chat") + "</td><td>" + badge + "</td><td>" + date + "</td></tr>";
+      });
+      html += "</tbody></table>";
+      el.innerHTML = html;
+    })
+    .catch(() => showToast("Gagal memuat ringkasan"));
+}
+
+// ---------- Admin: Kelola Website ----------
+
+function loadSites() {
+  fetch(API_BASE + "/api/admin/sites", { headers: authHeaders() })
+    .then((r) => r.json())
+    .then((sites) => {
+      const el = document.getElementById("sites-list");
+      if (!sites.length) {
+        el.innerHTML = '<div class="empty-msg">Belum ada website terdaftar. Tambah yang pertama di atas.</div>';
+        return;
+      }
+      let html = '<table class="sites-table"><thead><tr><th>Nama</th><th>Domain</th><th>Widget Key</th><th>Provider</th><th>Status</th><th>Dibuat</th><th></th></tr></thead><tbody>';
+      sites.forEach((s) => {
+        const badge = s.is_active ? '<span class="badge-active">Aktif</span>' : '<span class="badge-inactive">Nonaktif</span>';
+        const date = new Date(s.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+        const wk = s.widget_key;
+        html += "<tr>";
+        html += "<td>" + escapeHtml(s.name) + "</td>";
+        html += "<td>" + (s.domain ? escapeHtml(s.domain) : '<span style="color:#c9b7a6">-</span>') + "</td>";
+        html += '<td><span class="wk-text" title="Klik untuk salin" onclick="copyText(\'' + wk + '\')">' + wk.slice(0, 8) + "...</span></td>";
+        html += '<td style="color:#8a6a52">' + escapeHtml(s.ai_provider || "ai4chat") + "</td>";
+        html += "<td>" + badge + "</td>";
+        html += '<td style="color:#a08a76">' + date + "</td>";
+        html += '<td><div class="btn-row"><button class="btn btn-orange btn-sm" onclick="openScriptModal(\'' + s.id + '\')">Script</button><button class="btn btn-outline btn-sm" onclick="openEditModal(\'' + s.id + '\')">Edit</button></div></td>';
+        html += "</tr>";
+      });
+      html += "</tbody></table>";
+      el.innerHTML = html;
+    })
+    .catch(() => {
+      document.getElementById("sites-list").innerHTML = '<div class="empty-msg" style="color:#d92d20;">Gagal memuat data.</div>';
+    });
+}
+
+function loadUsage() {
+  fetch(API_BASE + "/api/admin/usage", { headers: authHeaders() })
+    .then((r) => r.json())
+    .then((data) => {
+      const el = document.getElementById("usage-list");
+      if (!data.sites.length) { el.innerHTML = '<div class="empty-msg">Belum ada data pemakaian.</div>'; return; }
+      let html = '<table class="sites-table"><thead><tr><th>Website</th><th>Token Masuk</th><th>Token Keluar</th></tr></thead><tbody>';
+      data.sites.forEach((s) => {
+        html += "<tr><td>" + escapeHtml(s.name) + "</td><td>" + s.tokens_in.toLocaleString("id-ID") + "</td><td>" + s.tokens_out.toLocaleString("id-ID") + "</td></tr>";
+      });
+      html += '<tr style="font-weight:700;"><td>Total</td><td>' + data.total.tokens_in.toLocaleString("id-ID") + "</td><td>" + data.total.tokens_out.toLocaleString("id-ID") + "</td></tr>";
+      html += "</tbody></table>";
+      el.innerHTML = html;
+    })
+    .catch(() => {
+      document.getElementById("usage-list").innerHTML = '<div class="empty-msg" style="color:#d92d20;">Gagal memuat data pemakaian.</div>';
+    });
+}
+
+function addSite() {
+  const name = document.getElementById("site-name").value.trim();
+  const domain = document.getElementById("site-domain").value.trim();
+  const systemPrompt = document.getElementById("site-prompt").value.trim();
+  const aiProvider = document.getElementById("site-provider").value;
+
+  if (!name) { showToast("Nama website wajib diisi"); return; }
+
+  const btn = document.getElementById("add-btn");
+  btn.disabled = true;
+  btn.textContent = "Menambahkan...";
+
+  fetch(API_BASE + "/api/admin/sites", {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ name, domain: domain || undefined, systemPrompt: systemPrompt || undefined, aiProvider }),
+  })
+    .then((r) => { if (!r.ok) return r.json().then((d) => { throw new Error(d.error); }); return r.json(); })
+    .then((data) => {
+      document.getElementById("site-name").value = "";
+      document.getElementById("site-domain").value = "";
+      document.getElementById("site-prompt").value = "";
+      document.getElementById("site-provider").value = "ai4chat";
+
+      const script = '<script\n  src="' + API_BASE + '/widget/chat-widget.js"\n  data-widget-key="' + data.widgetKey + '"\n  data-api-url="' + API_BASE + '/api/chat"\n></' + "script>";
+      document.getElementById("new-site-script").textContent = script;
+      document.getElementById("new-site-export-token").textContent = data.exportToken;
+      document.getElementById("new-site-modal").classList.add("open");
+
+      loadSites();
+    })
+    .catch((err) => showToast("Gagal: " + err.message))
+    .finally(() => { btn.disabled = false; btn.textContent = "Tambah Website"; });
+}
+
+function closeNewSiteModal() {
+  document.getElementById("new-site-modal").classList.remove("open");
+}
+
+let editingSiteId = null;
+
+function openEditModal(siteId) {
+  fetch(API_BASE + "/api/admin/sites/" + siteId, { headers: authHeaders() })
+    .then((r) => { if (!r.ok) throw new Error("Gagal memuat data website"); return r.json(); })
+    .then((site) => {
+      editingSiteId = site.id;
+      document.getElementById("edit-name").value = site.name || "";
+      document.getElementById("edit-domain").value = site.domain || "";
+      document.getElementById("edit-prompt").value = site.system_prompt || "";
+      document.getElementById("edit-provider").value = site.ai_provider || "ai4chat";
+      document.getElementById("edit-modal").classList.add("open");
+      loadClientAccount(siteId);
+    })
+    .catch((err) => showToast("Gagal: " + err.message));
+}
+
+function closeEditModal() {
+  editingSiteId = null;
+  document.getElementById("edit-modal").classList.remove("open");
+}
+
+function loadClientAccount(siteId) {
+  document.getElementById("edit-account-username-input").value = "";
+  document.getElementById("edit-account-password-input").value = "";
+  fetch(API_BASE + "/api/admin/sites/" + siteId + "/account", { headers: authHeaders() })
+    .then((r) => r.json())
+    .then((account) => {
+      if (account) {
+        document.getElementById("edit-account-existing").style.display = "block";
+        document.getElementById("edit-account-username").textContent = account.username;
+        document.getElementById("edit-account-username-input").value = account.username;
+        document.getElementById("edit-account-username-input").disabled = true;
+        document.getElementById("edit-account-pw-hint").textContent = "(kosongkan jika tidak ingin diubah)";
+        document.getElementById("edit-account-delete-btn").style.display = "inline-flex";
+      } else {
+        document.getElementById("edit-account-existing").style.display = "none";
+        document.getElementById("edit-account-username-input").disabled = false;
+        document.getElementById("edit-account-pw-hint").textContent = "";
+        document.getElementById("edit-account-delete-btn").style.display = "none";
+      }
+    })
+    .catch(() => {});
+}
+
+function saveClientAccount() {
+  if (!editingSiteId) return;
+  const username = document.getElementById("edit-account-username-input").value.trim();
+  const password = document.getElementById("edit-account-password-input").value;
+  const hasExisting = document.getElementById("edit-account-existing").style.display === "block";
+
+  const btn = document.getElementById("edit-account-save-btn");
+  btn.disabled = true;
+
+  if (hasExisting) {
+    if (!password) { showToast("Isi password baru untuk mengubah akun"); btn.disabled = false; return; }
+    fetch(API_BASE + "/api/admin/sites/" + editingSiteId + "/account", {
+      method: "PATCH",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ password }),
+    })
+      .then((r) => { if (!r.ok) return r.json().then((d) => { throw new Error(d.error); }); return r.json(); })
+      .then(() => { showToast("Password akun klien diperbarui"); document.getElementById("edit-account-password-input").value = ""; })
+      .catch((err) => showToast("Gagal: " + err.message))
+      .finally(() => { btn.disabled = false; });
+  } else {
+    if (!username || !password) { showToast("Username dan password wajib diisi"); btn.disabled = false; return; }
+    fetch(API_BASE + "/api/admin/sites/" + editingSiteId + "/account", {
+      method: "POST",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ username, password }),
+    })
+      .then((r) => { if (!r.ok) return r.json().then((d) => { throw new Error(d.error); }); return r.json(); })
+      .then(() => { showToast("Akun klien dibuat"); loadClientAccount(editingSiteId); })
+      .catch((err) => showToast("Gagal: " + err.message))
+      .finally(() => { btn.disabled = false; });
+  }
+}
+
+function deleteClientAccount() {
+  if (!editingSiteId) return;
+  if (!confirm("Hapus akun klien ini? Klien tidak akan bisa login lagi sampai dibuatkan akun baru.")) return;
+
+  fetch(API_BASE + "/api/admin/sites/" + editingSiteId + "/account", {
+    method: "DELETE",
+    headers: authHeaders(),
+  })
+    .then((r) => { if (!r.ok) throw new Error("Gagal menghapus akun"); return r.json(); })
+    .then(() => { showToast("Akun klien dihapus"); loadClientAccount(editingSiteId); })
+    .catch((err) => showToast("Gagal: " + err.message));
+}
+
+function saveEdit() {
+  if (!editingSiteId) return;
+  const name = document.getElementById("edit-name").value.trim();
+  const domain = document.getElementById("edit-domain").value.trim();
+  const systemPrompt = document.getElementById("edit-prompt").value.trim();
+  const aiProvider = document.getElementById("edit-provider").value;
+
+  if (!name) { showToast("Nama website wajib diisi"); return; }
+
+  const btn = document.getElementById("edit-save-btn");
+  btn.disabled = true;
+  btn.textContent = "Menyimpan...";
+
+  fetch(API_BASE + "/api/admin/sites/" + editingSiteId, {
+    method: "PATCH",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ name, domain, systemPrompt, aiProvider }),
+  })
+    .then((r) => { if (!r.ok) return r.json().then((d) => { throw new Error(d.error); }); return r.json(); })
+    .then(() => { showToast("Perubahan disimpan"); closeEditModal(); loadSites(); })
+    .catch((err) => showToast("Gagal: " + err.message))
+    .finally(() => { btn.disabled = false; btn.textContent = "Simpan"; });
+}
+
+let scriptModalSiteId = null;
+
+function openScriptModal(siteId) {
+  scriptModalSiteId = siteId;
+  fetch(API_BASE + "/api/admin/sites/" + siteId, { headers: authHeaders() })
+    .then((r) => { if (!r.ok) throw new Error("Gagal memuat data"); return r.json(); })
+    .then((site) => {
+      const backendUrl = API_BASE;
+      const wk = site.widget_key;
+
+      document.getElementById("script-site-name").textContent = site.name;
+      document.getElementById("script-html-code").textContent =
+        '<script\n  src="' + backendUrl + '/widget/chat-widget.js"\n  data-widget-key="' + wk + '"\n  data-api-url="' + backendUrl + '/api/chat"\n></' + "script>";
+      document.getElementById("script-nextjs-import").textContent = 'import Script from "next/script";';
+      document.getElementById("script-nextjs-code").textContent =
+        '<Script\n  src="' + backendUrl + '/widget/chat-widget.js"\n  data-widget-key="' + wk + '"\n  data-api-url="' + backendUrl + '/api/chat"\n  strategy="afterInteractive"\n/>';
+
+      document.getElementById("script-modal").classList.add("open");
+    })
+    .catch((err) => showToast("Gagal memuat data: " + err.message));
+}
+
+function closeScriptModal() {
+  scriptModalSiteId = null;
+  document.getElementById("script-modal").classList.remove("open");
+}
+
+// ---------- Client: Dashboard ringkasan ----------
+
+function loadClientDashboard() {
+  Promise.all([
+    fetch(API_BASE + "/api/client/conversations", { headers: authHeaders() }).then((r) => r.json()),
+    fetch(API_BASE + "/api/client/leads", { headers: authHeaders() }).then((r) => r.json()),
+    fetch(API_BASE + "/api/client/analytics", { headers: authHeaders() }).then((r) => r.json()),
+  ])
+    .then(([conversations, leads, analytics]) => {
+      document.getElementById("cl-stat-conversations").textContent = conversations.length;
+      document.getElementById("cl-stat-leads-baru").textContent = leads.filter((l) => l.status === "baru").length;
+      const today = analytics.dailyVolume[analytics.dailyVolume.length - 1];
+      document.getElementById("cl-stat-messages-today").textContent = today ? today.messageCount : 0;
+      const total14d = analytics.dailyVolume.reduce((sum, d) => sum + d.messageCount, 0);
+      document.getElementById("cl-stat-messages-14d").textContent = total14d;
+    })
+    .catch(() => showToast("Gagal memuat ringkasan"));
+}
+
+// ---------- Client: Pengaturan Chatbot & Widget ----------
+
+function loadClientMe() {
+  fetch(API_BASE + "/api/client/me", { headers: authHeaders() })
+    .then((r) => r.json())
+    .then((site) => {
+      document.getElementById("prompt-input").value = site.system_prompt || "";
+      document.getElementById("widget-color-input").value = site.widget_color || "#c9a84c";
+      document.getElementById("widget-position-input").value = site.widget_position || "right";
+      document.getElementById("widget-greeting-input").value = site.widget_greeting || "";
+      updatePreview();
+    })
+    .catch(() => showToast("Gagal memuat data akun"));
+}
+
+function savePrompt() {
+  const systemPrompt = document.getElementById("prompt-input").value.trim();
+  const btn = document.getElementById("prompt-save-btn");
+  btn.disabled = true;
+  fetch(API_BASE + "/api/client/me", {
+    method: "PATCH",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ systemPrompt }),
+  })
+    .then((r) => { if (!r.ok) return r.json().then((d) => { throw new Error(d.error); }); return r.json(); })
+    .then(() => showToast("Instruksi chatbot disimpan"))
+    .catch((err) => showToast("Gagal: " + err.message))
+    .finally(() => { btn.disabled = false; });
+}
+
+function updatePreview() {
+  const color = document.getElementById("widget-color-input").value;
+  const position = document.getElementById("widget-position-input").value;
+  const bubble = document.getElementById("preview-bubble");
+  bubble.style.background = color;
+  bubble.style.left = position === "left" ? "16px" : "auto";
+  bubble.style.right = position === "right" ? "16px" : "auto";
+}
+
+function saveWidget() {
+  const widgetColor = document.getElementById("widget-color-input").value;
+  const widgetPosition = document.getElementById("widget-position-input").value;
+  const widgetGreeting = document.getElementById("widget-greeting-input").value.trim();
+  const btn = document.getElementById("widget-save-btn");
+  btn.disabled = true;
+
+  fetch(API_BASE + "/api/client/me", {
+    method: "PATCH",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ widgetColor, widgetPosition, widgetGreeting }),
+  })
+    .then((r) => { if (!r.ok) return r.json().then((d) => { throw new Error(d.error); }); return r.json(); })
+    .then(() => showToast("Tampilan widget disimpan"))
+    .catch((err) => showToast("Gagal: " + err.message))
+    .finally(() => { btn.disabled = false; });
+}
+
+// ---------- Client: Percakapan ----------
+
+function loadConversations() {
+  fetch(API_BASE + "/api/client/conversations", { headers: authHeaders() })
+    .then((r) => r.json())
+    .then((conversations) => {
+      const el = document.getElementById("conv-list");
+      if (!conversations.length) { el.innerHTML = '<div class="empty-msg">Belum ada percakapan dari pengunjung.</div>'; return; }
+      el.innerHTML = "";
+      conversations.forEach((c) => {
+        const important = c.important_count > 0;
+        const div = document.createElement("div");
+        div.className = "conv-item" + (important ? " important" : "");
+        div.onclick = () => openMessages(c.id);
+        const date = new Date(c.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+        div.innerHTML = (important ? '<span class="badge-important">Penting</span>' : "") + '<span class="conv-msg"></span><span class="conv-meta"></span>';
+        div.querySelector(".conv-msg").textContent = c.last_message || "(belum ada pesan)";
+        div.querySelector(".conv-meta").textContent = date;
+        el.appendChild(div);
+      });
+    })
+    .catch(() => { document.getElementById("conv-list").innerHTML = '<div class="empty-msg" style="color:#d92d20;">Gagal memuat percakapan.</div>'; });
+}
+
+function openMessages(conversationId) {
+  fetch(API_BASE + "/api/client/conversations/" + conversationId + "/messages", { headers: authHeaders() })
+    .then((r) => r.json())
+    .then((messages) => {
+      const el = document.getElementById("messages-list");
+      el.innerHTML = "";
+      messages.forEach((m) => {
+        const div = document.createElement("div");
+        div.className = "msg-bubble msg-" + m.role + (m.is_important ? " msg-important" : "");
+        div.textContent = m.content;
+        el.appendChild(div);
+      });
+      document.getElementById("messages-modal").classList.add("open");
+    })
+    .catch(() => showToast("Gagal memuat pesan"));
+}
+
+function closeMessagesModal() {
+  document.getElementById("messages-modal").classList.remove("open");
+}
+
+// ---------- Client: CRM Leads ----------
+
+function filterLeads(status) {
+  currentLeadFilter = status;
+  document.querySelectorAll(".filter-pill").forEach((p) => p.classList.toggle("active", p.dataset.status === status));
+  loadLeads(status);
+}
+
+function loadLeads(status) {
+  const url = API_BASE + "/api/client/leads" + (status ? "?status=" + encodeURIComponent(status) : "");
+  fetch(url, { headers: authHeaders() })
+    .then((r) => r.json())
+    .then((leads) => {
+      const el = document.getElementById("lead-list");
+      if (!leads.length) { el.innerHTML = '<div class="empty-msg">Belum ada lead' + (status ? " dengan status ini." : ".") + "</div>"; return; }
+      el.innerHTML = "";
+      leads.forEach((l) => {
+        const div = document.createElement("div");
+        div.className = "lead-card";
+        div.onclick = () => openLead(l);
+        const date = new Date(l.updated_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+        const contactParts = [];
+        if (l.contact_phone) contactParts.push("📞 " + l.contact_phone);
+        if (l.contact_email) contactParts.push("✉️ " + l.contact_email);
+        div.innerHTML =
+          '<div class="lead-card-top"><span class="badge-status badge-' + l.status + '"></span><span class="lead-date"></span></div>' +
+          '<div class="lead-contact"></div><div class="lead-preview"></div>';
+        div.querySelector(".badge-status").textContent = STATUS_LABELS[l.status] || l.status;
+        div.querySelector(".lead-date").textContent = date;
+        div.querySelector(".lead-contact").textContent = contactParts.join("  ·  ") || "(kontak tidak terdeteksi)";
+        div.querySelector(".lead-preview").textContent = l.last_message || "";
+        el.appendChild(div);
+      });
+    })
+    .catch(() => { document.getElementById("lead-list").innerHTML = '<div class="empty-msg" style="color:#d92d20;">Gagal memuat leads.</div>'; });
+}
+
+function openLead(lead) {
+  currentLeadId = lead.id;
+  const contactParts = [];
+  if (lead.contact_phone) contactParts.push("Telepon: " + lead.contact_phone);
+  if (lead.contact_email) contactParts.push("Email: " + lead.contact_email);
+  document.getElementById("lead-contact-display").textContent = contactParts.join(" · ") || "Kontak tidak terdeteksi otomatis";
+  document.getElementById("lead-status-input").value = lead.status;
+  document.getElementById("lead-notes-input").value = lead.notes || "";
+
+  const msgEl = document.getElementById("lead-messages-list");
+  msgEl.innerHTML = '<div class="empty-msg">Memuat riwayat...</div>';
+  fetch(API_BASE + "/api/client/conversations/" + lead.conversation_id + "/messages", { headers: authHeaders() })
+    .then((r) => r.json())
+    .then((messages) => {
+      msgEl.innerHTML = "";
+      messages.forEach((m) => {
+        const div = document.createElement("div");
+        div.className = "msg-bubble msg-" + m.role + (m.is_important ? " msg-important" : "");
+        div.textContent = m.content;
+        msgEl.appendChild(div);
+      });
+    })
+    .catch(() => { msgEl.innerHTML = '<div class="empty-msg" style="color:#d92d20;">Gagal memuat riwayat pesan.</div>'; });
+
+  document.getElementById("lead-modal").classList.add("open");
+}
+
+function closeLeadModal() {
+  document.getElementById("lead-modal").classList.remove("open");
+  currentLeadId = null;
+}
+
+function saveLead() {
+  if (!currentLeadId) return;
+  const status = document.getElementById("lead-status-input").value;
+  const notes = document.getElementById("lead-notes-input").value;
+  const btn = document.getElementById("lead-save-btn");
+  btn.disabled = true;
+  fetch(API_BASE + "/api/client/leads/" + currentLeadId, {
+    method: "PATCH",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ status, notes }),
+  })
+    .then((r) => { if (!r.ok) return r.json().then((d) => { throw new Error(d.error); }); return r.json(); })
+    .then(() => { showToast("Lead diperbarui"); closeLeadModal(); loadLeads(currentLeadFilter); })
+    .catch((err) => showToast("Gagal: " + err.message))
+    .finally(() => { btn.disabled = false; });
+}
+
+// ---------- Client: Statistik ----------
+
+function loadAnalytics() {
+  fetch(API_BASE + "/api/client/analytics", { headers: authHeaders() })
+    .then((r) => r.json())
+    .then((data) => {
+      renderDailyChart(data.dailyVolume);
+      renderHourChart(data.hours);
+      renderDayChart(data.days);
+    })
+    .catch(() => showToast("Gagal memuat statistik"));
+}
+
+function renderDailyChart(rows) {
+  const el = document.getElementById("chart-daily");
+  const max = Math.max(1, ...rows.map((r) => r.messageCount));
+  el.innerHTML = "";
+  rows.forEach((r) => {
+    const col = document.createElement("div");
+    col.className = "bar-col";
+    const label = new Date(r.day + "T00:00:00").toLocaleDateString("id-ID", { day: "numeric", month: "numeric" });
+    const inner = document.createElement("div");
+    inner.className = "bar-col-double";
+    inner.title = r.messageCount + " pesan, " + r.conversationCount + " percakapan (" + label + ")";
+    const barMsg = document.createElement("div");
+    barMsg.className = "bar";
+    barMsg.style.height = (r.messageCount / max) * 100 + "%";
+    const barConv = document.createElement("div");
+    barConv.className = "bar bar-secondary";
+    barConv.style.height = (r.conversationCount / max) * 100 + "%";
+    inner.appendChild(barMsg);
+    inner.appendChild(barConv);
+    const labelEl = document.createElement("div");
+    labelEl.className = "bar-label";
+    labelEl.textContent = label;
+    col.appendChild(inner);
+    col.appendChild(labelEl);
+    el.appendChild(col);
+  });
+}
+
+function renderHourChart(rows) {
+  const el = document.getElementById("chart-hours");
+  const max = Math.max(1, ...rows.map((r) => r.count));
+  el.innerHTML = "";
+  rows.forEach((r) => {
+    const col = document.createElement("div");
+    col.className = "bar-col";
+    const bar = document.createElement("div");
+    bar.className = "bar";
+    bar.style.height = (r.count / max) * 100 + "%";
+    bar.title = r.count + " pesan jam " + r.hour + ":00";
+    const labelEl = document.createElement("div");
+    labelEl.className = "bar-label";
+    labelEl.textContent = r.hour % 3 === 0 ? r.hour : "";
+    col.appendChild(bar);
+    col.appendChild(labelEl);
+    el.appendChild(col);
+  });
+}
+
+function renderDayChart(rows) {
+  const el = document.getElementById("chart-days");
+  const max = Math.max(1, ...rows.map((r) => r.count));
+  el.innerHTML = "";
+  rows.forEach((r) => {
+    const col = document.createElement("div");
+    col.className = "bar-col";
+    const bar = document.createElement("div");
+    bar.className = "bar";
+    bar.style.height = (r.count / max) * 100 + "%";
+    bar.title = r.count + " pesan hari " + r.day;
+    const labelEl = document.createElement("div");
+    labelEl.className = "bar-label";
+    labelEl.textContent = DAY_SHORT[r.day] || r.day;
+    col.appendChild(bar);
+    col.appendChild(labelEl);
+    el.appendChild(col);
+  });
+}
+
+// ---------- Bootstrap ----------
+
+document.getElementById("password-input").addEventListener("keydown", function (e) {
+  if (e.key === "Enter") doLogin();
+});
+
+(function autoLogin() {
+  const savedToken = sessionStorage.getItem("wc_token");
+  const savedRole = sessionStorage.getItem("wc_role");
+  if (savedToken && savedRole) {
+    authToken = savedToken;
+    authRole = savedRole;
+    enterDashboard();
+  }
+})();
+</script>
+</body>
+</html>
