@@ -13,7 +13,7 @@ const MAX_HISTORY = 10; // jumlah pesan terakhir yang dikirim sebagai context
 // Dipaksakan ke semua provider supaya balasan terasa seperti manusia asli,
 // bukan robot kaku, dan widget (yang render teks polos, bukan markdown) tidak
 // menampilkan simbol "**" / "*" / "#" mentah-mentah ke pengunjung.
-const STYLE_GUIDE = `Gaya bicara wajib: balas seperti orang Indonesia asli yang ramah dan profesional, bukan seperti robot. Jawaban singkat, padat, langsung ke inti - jangan bertele-tele. Tulis dalam kalimat atau paragraf biasa, seperti chat WhatsApp dengan pelanggan. Jangan pernah pakai format markdown (bintang **, underscore __, pagar #, bullet dengan - atau *, penomoran 1. 2. 3., tanda kutip balik \`, atau blockquote >). Jangan pakai emoji. Jangan pakai tanda baca berlebihan seperti !!! atau ???. Jangan pakai tanda kutip miring/lengkung atau tanda pisah panjang (—), pakai tanda baca biasa saja.`;
+const STYLE_GUIDE = `Gaya bicara wajib: balas seperti orang Indonesia asli yang ramah dan profesional, bukan seperti robot. Jawaban singkat, padat, langsung ke inti - jangan bertele-tele. Tulis dalam kalimat atau paragraf biasa, seperti chat WhatsApp dengan pelanggan. Jangan pernah pakai format markdown (bintang **, underscore __, pagar #, bullet dengan - atau *, penomoran 1. 2. 3., tanda kutip balik \`, atau blockquote >). Jangan pakai emoji. Jangan pakai tanda baca berlebihan seperti !!! atau ???. Jangan pakai tanda kutip miring/lengkung atau tanda pisah panjang (—), pakai tanda baca biasa saja. Jangan pernah bungkus seluruh jawabanmu dengan tanda kutip di awal dan akhir. Kalau jawabanmu panjang, pecah jadi beberapa paragraf pendek (2-3 kalimat per paragraf) dengan baris kosong di antaranya, supaya enak dibaca.`;
 
 // Lapis kedua di kode (bukan cuma andalkan AI patuh instruksi) - AI provider mana pun
 // (ai4chat, Gemini, dst) kadang tetap selip format markdown/simbol aneh walau sudah
@@ -58,6 +58,40 @@ function stripMarkdown(text) {
     .trim();
 }
 
+// AI kadang membungkus seluruh jawaban dengan tanda kutip (kebiasaan model tertentu),
+// padahal itu bukan kutipan sungguhan - buang kalau kutip pembuka/penutup itu memang
+// membungkus keseluruhan teks, bukan cuma sebagian kalimat.
+function stripWrappingQuotes(text) {
+  const t = text.trim();
+  if (t.length > 1 && t[0] === '"' && t[t.length - 1] === '"') {
+    return t.slice(1, -1).trim();
+  }
+  return t;
+}
+
+// Lapis ketiga: paksa jawaban panjang terpecah jadi paragraf pendek (target ~160 karakter
+// per paragraf) supaya nyaman dibaca di widget, tidak menumpuk jadi satu blok teks raksasa -
+// tidak bergantung pada AI mengikuti instruksi baris kosong di STYLE_GUIDE.
+function formatParagraphs(text) {
+  if (text.length <= 160 || text.includes("\n\n")) return text;
+
+  const sentences = text.match(/[^.!?]+[.!?]+(\s+|$)/g) || [text];
+  const paragraphs = [];
+  let current = "";
+
+  sentences.forEach((s) => {
+    if (current && current.length + s.length > 160) {
+      paragraphs.push(current.trim());
+      current = s;
+    } else {
+      current += s;
+    }
+  });
+  if (current.trim()) paragraphs.push(current.trim());
+
+  return paragraphs.join("\n\n");
+}
+
 // Bikin/lengkapi lead CRM otomatis saat ada pesan penting - satu lead per percakapan,
 // kontak yang sudah terisi tidak ditimpa kalau pesan berikutnya tidak membawa kontak baru.
 function upsertLead(siteId, conversationId, message) {
@@ -90,7 +124,7 @@ chatRouter.get("/widget-config", (req, res) => {
 
   const site = db
     .prepare(
-      "SELECT widget_color, widget_position, widget_greeting FROM sites WHERE widget_key = ? AND is_active = 1",
+      "SELECT widget_color, widget_position, widget_greeting, widget_title, widget_bg_color FROM sites WHERE widget_key = ? AND is_active = 1",
     )
     .get(widgetKey);
 
@@ -132,7 +166,7 @@ chatRouter.post("/chat", resolveSite, rateLimit, async (req, res) => {
       history: historyRows,
       message,
     });
-    const reply = stripMarkdown(rawReply);
+    const reply = formatParagraphs(stripWrappingQuotes(stripMarkdown(rawReply)));
 
     const important = isImportant(message);
     const insertMessage = db.prepare(

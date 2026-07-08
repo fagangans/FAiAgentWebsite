@@ -29,6 +29,8 @@ function ensureColumn(table, column, definition) {
 ensureColumn("sites", "widget_color", "TEXT DEFAULT '#c9a84c'");
 ensureColumn("sites", "widget_position", "TEXT DEFAULT 'right'");
 ensureColumn("sites", "widget_greeting", "TEXT DEFAULT 'Halo! Ada yang bisa saya bantu?'");
+ensureColumn("sites", "widget_title", "TEXT DEFAULT 'Chat dengan kami'");
+ensureColumn("sites", "widget_bg_color", "TEXT DEFAULT '#0a0a0a'");
 ensureColumn("messages", "is_important", "INTEGER DEFAULT 0");
 
 // Buat akun admin otomatis saat pertama kali jalan, dari ADMIN_USERNAME/ADMIN_PASSWORD

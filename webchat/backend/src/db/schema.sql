@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS sites (
   widget_color    TEXT DEFAULT '#c9a84c',  -- warna gelembung & header widget, diatur klien sendiri
   widget_position TEXT DEFAULT 'right',    -- 'right' | 'left'
   widget_greeting TEXT DEFAULT 'Halo! Ada yang bisa saya bantu?',
+  widget_title    TEXT DEFAULT 'Chat dengan kami', -- judul di header panel chat, diatur klien sendiri
+  widget_bg_color TEXT DEFAULT '#0a0a0a',  -- warna latar panel chat, diatur klien sendiri
   is_active       INTEGER DEFAULT 1,
   created_at      TEXT DEFAULT CURRENT_TIMESTAMP
 );

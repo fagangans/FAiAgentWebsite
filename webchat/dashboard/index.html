@@ -106,9 +106,12 @@
   .row-2 { display: flex; gap: 16px; }
   .row-2 > div { flex: 1; }
 
-  .widget-preview-bubble { position: absolute; bottom: 16px; width: 48px; height: 48px; border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 10px rgba(0,0,0,.2); }
+  .widget-preview-bubble { position: absolute; bottom: 16px; right: 16px; width: 48px; height: 48px; border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 10px rgba(0,0,0,.2); }
   .widget-preview-bubble svg { width: 22px; height: 22px; }
-  .preview-box { position: relative; height: 110px; background: #f6f6f6; border-radius: 12px; border: 1px dashed #e0c4a4; margin-top: 6px; }
+  .preview-box { position: relative; height: 220px; background: #f6f6f6; border-radius: 12px; border: 1px dashed #e0c4a4; margin-top: 6px; padding: 16px; }
+  .widget-preview-panel { width: 220px; height: 160px; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,.15); display: flex; flex-direction: column; }
+  .widget-preview-header { padding: 10px 12px; font-size: 12px; font-weight: 700; }
+  .widget-preview-body { flex: 1; padding: 10px 12px; font-size: 11px; line-height: 1.5; }
 
   /* Conversations */
   .conv-list { display: flex; flex-direction: column; gap: 8px; }
@@ -386,18 +389,26 @@
     <section class="panel" id="panel-client-widget">
       <div class="card">
         <h2>Tampilan Widget Chat</h2>
+        <div class="form-row">
+          <label>Judul Header Chat</label>
+          <input type="text" id="widget-title-input" placeholder="Chat dengan kami" maxlength="60" oninput="updatePreview()">
+        </div>
         <div class="row-2">
           <div class="form-row">
-            <label>Warna Bubble</label>
+            <label>Warna Bubble &amp; Header</label>
             <input type="color" id="widget-color-input" value="#c9a84c" oninput="updatePreview()">
           </div>
           <div class="form-row">
-            <label>Posisi</label>
-            <select id="widget-position-input" onchange="updatePreview()">
-              <option value="right">Kanan</option>
-              <option value="left">Kiri</option>
-            </select>
+            <label>Warna Latar Panel Chat</label>
+            <input type="color" id="widget-bg-color-input" value="#0a0a0a" oninput="updatePreview()">
           </div>
+        </div>
+        <div class="form-row">
+          <label>Posisi</label>
+          <select id="widget-position-input" onchange="updatePreview()">
+            <option value="right">Kanan</option>
+            <option value="left">Kiri</option>
+          </select>
         </div>
         <div class="form-row">
           <label>Pesan Sapaan Pertama</label>
@@ -405,6 +416,10 @@
         </div>
         <label style="display:block; font-size:13px; color:#6b5644; margin-bottom:4px;">Pratinjau</label>
         <div class="preview-box" id="preview-box">
+          <div class="widget-preview-panel" id="preview-panel">
+            <div class="widget-preview-header" id="preview-header">Chat dengan kami</div>
+            <div class="widget-preview-body" id="preview-body">Halo! Ada yang bisa saya bantu?</div>
+          </div>
           <div class="widget-preview-bubble" id="preview-bubble"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></div>
         </div>
         <button class="btn btn-orange btn-sm" id="widget-save-btn" onclick="saveWidget()" style="margin-top:16px;">Simpan Tampilan</button>
@@ -1073,8 +1088,10 @@ function loadClientMe() {
     .then((site) => {
       document.getElementById("prompt-input").value = site.system_prompt || "";
       document.getElementById("widget-color-input").value = site.widget_color || "#c9a84c";
+      document.getElementById("widget-bg-color-input").value = site.widget_bg_color || "#0a0a0a";
       document.getElementById("widget-position-input").value = site.widget_position || "right";
       document.getElementById("widget-greeting-input").value = site.widget_greeting || "";
+      document.getElementById("widget-title-input").value = site.widget_title || "Chat dengan kami";
       updatePreview();
     })
     .catch(() => showToast("Gagal memuat data akun"));
@@ -1095,26 +1112,51 @@ function savePrompt() {
     .finally(() => { btn.disabled = false; });
 }
 
+// Sama seperti logika di chat-widget.js - pilih warna teks otomatis berdasarkan
+// kecerahan warna latar, supaya pratinjau di dashboard sama persis dengan widget asli.
+function idealTextColor(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = (n >> 16) & 0xff, g = (n >> 8) & 0xff, b = n & 0xff;
+  const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+  return luminance > 150 ? "#1a1a1a" : "#ffffff";
+}
+
 function updatePreview() {
   const color = document.getElementById("widget-color-input").value;
+  const bgColor = document.getElementById("widget-bg-color-input").value;
   const position = document.getElementById("widget-position-input").value;
+  const title = document.getElementById("widget-title-input").value.trim() || "Chat dengan kami";
+
   const bubble = document.getElementById("preview-bubble");
   bubble.style.background = color;
   bubble.style.left = position === "left" ? "16px" : "auto";
   bubble.style.right = position === "right" ? "16px" : "auto";
+
+  const headerEl = document.getElementById("preview-header");
+  const bodyEl = document.getElementById("preview-body");
+  const bubbleText = idealTextColor(color);
+  const panelText = idealTextColor(bgColor);
+
+  headerEl.textContent = title;
+  headerEl.style.background = color;
+  headerEl.style.color = bubbleText;
+  bodyEl.style.background = bgColor;
+  bodyEl.style.color = panelText;
 }
 
 function saveWidget() {
   const widgetColor = document.getElementById("widget-color-input").value;
+  const widgetBgColor = document.getElementById("widget-bg-color-input").value;
   const widgetPosition = document.getElementById("widget-position-input").value;
   const widgetGreeting = document.getElementById("widget-greeting-input").value.trim();
+  const widgetTitle = document.getElementById("widget-title-input").value.trim() || "Chat dengan kami";
   const btn = document.getElementById("widget-save-btn");
   btn.disabled = true;
 
   fetch(API_BASE + "/api/client/me", {
     method: "PATCH",
     headers: authHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({ widgetColor, widgetPosition, widgetGreeting }),
+    body: JSON.stringify({ widgetColor, widgetBgColor, widgetPosition, widgetGreeting, widgetTitle }),
   })
     .then((r) => { if (!r.ok) return r.json().then((d) => { throw new Error(d.error); }); return r.json(); })
     .then(() => showToast("Tampilan widget disimpan"))

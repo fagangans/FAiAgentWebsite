@@ -11,7 +11,8 @@ const DAY_LABELS = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabt
 clientRouter.get("/me", requireClient, (req, res) => {
   const site = db
     .prepare(
-      `SELECT id, name, system_prompt, ai_provider, widget_color, widget_position, widget_greeting
+      `SELECT id, name, system_prompt, ai_provider, widget_color, widget_position, widget_greeting,
+              widget_title, widget_bg_color
        FROM sites WHERE id = ?`,
     )
     .get(req.clientSiteId);
@@ -21,7 +22,7 @@ clientRouter.get("/me", requireClient, (req, res) => {
 });
 
 clientRouter.patch("/me", requireClient, (req, res) => {
-  const { systemPrompt, widgetColor, widgetPosition, widgetGreeting } = req.body;
+  const { systemPrompt, widgetColor, widgetPosition, widgetGreeting, widgetTitle, widgetBgColor } = req.body;
   const fields = [];
   const values = [];
 
@@ -41,6 +42,20 @@ clientRouter.patch("/me", requireClient, (req, res) => {
     values.push(widgetPosition);
   }
   if (widgetGreeting !== undefined) { fields.push("widget_greeting = ?"); values.push(widgetGreeting); }
+  if (widgetTitle !== undefined) {
+    if (!widgetTitle.trim() || widgetTitle.length > 60) {
+      return res.status(400).json({ error: "Judul widget wajib diisi, maksimal 60 karakter" });
+    }
+    fields.push("widget_title = ?");
+    values.push(widgetTitle.trim());
+  }
+  if (widgetBgColor !== undefined) {
+    if (!ALLOWED_COLORS.test(widgetBgColor)) {
+      return res.status(400).json({ error: "Format warna latar harus hex, contoh #0a0a0a" });
+    }
+    fields.push("widget_bg_color = ?");
+    values.push(widgetBgColor);
+  }
 
   if (!fields.length) return res.status(400).json({ error: "Tidak ada field yang diubah" });
 
