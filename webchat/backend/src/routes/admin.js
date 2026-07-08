@@ -105,13 +105,36 @@ adminRouter.patch("/sites/:id", requireAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
-// Akun login klien - sengaja dipisah dari /sites supaya hanya admin yang bisa buat/reset,
-// klien sendiri tidak punya endpoint untuk mengubah username/password-nya.
+// Akun login klien - sengaja dipisah dari /sites supaya hanya admin yang bisa buat/reset/
+// hubungkan, klien sendiri tidak punya endpoint untuk mengubah username/password atau
+// menghubungkan akun ke situs lain. 1 akun klien bisa pegang banyak situs lewat tabel
+// user_sites (many-to-many); endpoint di bawah selalu resolve akun lewat tabel itu,
+// bukan lewat kolom users.site_id yang sudah lama (dipertahankan cuma untuk data lama).
 adminRouter.get("/sites/:id/account", requireAdmin, (req, res) => {
   const account = db
-    .prepare("SELECT id, username, created_at FROM users WHERE site_id = ? AND role = 'client'")
+    .prepare(
+      `SELECT u.id, u.username, u.created_at,
+              (SELECT COUNT(*) FROM user_sites WHERE user_id = u.id) AS site_count
+       FROM users u
+       JOIN user_sites us ON us.user_id = u.id
+       WHERE us.site_id = ? AND u.role = 'client'`,
+    )
     .get(req.params.id);
   res.json(account || null);
+});
+
+// Semua akun klien yang ada di sistem - dipakai dropdown "Hubungkan Akun yang Sudah Ada"
+// di dashboard admin, supaya tidak perlu ketik manual username (rawan salah ketik).
+adminRouter.get("/accounts", requireAdmin, (req, res) => {
+  const accounts = db
+    .prepare(
+      `SELECT u.id, u.username,
+              (SELECT COUNT(*) FROM user_sites WHERE user_id = u.id) AS site_count
+       FROM users u WHERE u.role = 'client'
+       ORDER BY u.username ASC`,
+    )
+    .all();
+  res.json(accounts);
 });
 
 adminRouter.post("/sites/:id/account", requireAdmin, (req, res) => {
@@ -125,25 +148,52 @@ adminRouter.post("/sites/:id/account", requireAdmin, (req, res) => {
   }
 
   const usernameTaken = db.prepare("SELECT id FROM users WHERE username = ?").get(username);
-  if (usernameTaken) return res.status(409).json({ error: "Username sudah dipakai" });
+  if (usernameTaken) {
+    return res.status(409).json({
+      error: 'Username sudah dipakai - kalau mau tambahkan situs ini ke akun tersebut, pakai opsi "Hubungkan Akun yang Sudah Ada"',
+    });
+  }
 
-  const existingAccount = db
-    .prepare("SELECT id FROM users WHERE site_id = ? AND role = 'client'")
-    .get(site.id);
-  if (existingAccount) return res.status(409).json({ error: "Website ini sudah punya akun klien" });
+  const existingLink = db.prepare("SELECT 1 FROM user_sites WHERE site_id = ?").get(site.id);
+  if (existingLink) return res.status(409).json({ error: "Website ini sudah punya akun klien" });
 
   const id = uuid();
   db.prepare(
     "INSERT INTO users (id, username, password_hash, role, site_id) VALUES (?, ?, ?, 'client', ?)",
   ).run(id, username, hashPassword(password), site.id);
+  db.prepare("INSERT INTO user_sites (user_id, site_id) VALUES (?, ?)").run(id, site.id);
 
   console.log(`[admin] Akun klien dibuat: username="${username}" site=${site.id}`);
   res.json({ ok: true, id, username });
 });
 
+// Hubungkan situs ini ke akun klien yang SUDAH ADA (dibuat sebelumnya untuk situs lain),
+// bukan bikin akun baru - inilah yang bikin 1 akun klien bisa pegang banyak situs.
+adminRouter.post("/sites/:id/link-account", requireAdmin, (req, res) => {
+  const site = db.prepare("SELECT id FROM sites WHERE id = ?").get(req.params.id);
+  if (!site) return res.status(404).json({ error: "Website tidak ditemukan" });
+
+  const { userId } = req.body;
+  if (!userId) return res.status(400).json({ error: "Akun klien yang mau dihubungkan wajib dipilih" });
+
+  const account = db.prepare("SELECT id, username FROM users WHERE id = ? AND role = 'client'").get(userId);
+  if (!account) return res.status(404).json({ error: "Akun klien tidak ditemukan" });
+
+  const existingLink = db.prepare("SELECT 1 FROM user_sites WHERE site_id = ?").get(site.id);
+  if (existingLink) return res.status(409).json({ error: "Website ini sudah punya akun klien" });
+
+  db.prepare("INSERT INTO user_sites (user_id, site_id) VALUES (?, ?)").run(account.id, site.id);
+
+  console.log(`[admin] Akun klien "${account.username}" dihubungkan ke site=${site.id}`);
+  res.json({ ok: true, id: account.id, username: account.username });
+});
+
 adminRouter.patch("/sites/:id/account", requireAdmin, (req, res) => {
   const account = db
-    .prepare("SELECT id FROM users WHERE site_id = ? AND role = 'client'")
+    .prepare(
+      `SELECT u.id FROM users u JOIN user_sites us ON us.user_id = u.id
+       WHERE us.site_id = ? AND u.role = 'client'`,
+    )
     .get(req.params.id);
   if (!account) return res.status(404).json({ error: "Akun klien belum dibuat" });
 
@@ -153,13 +203,31 @@ adminRouter.patch("/sites/:id/account", requireAdmin, (req, res) => {
     return res.status(400).json({ error: `Password minimal ${MIN_PASSWORD_LENGTH} karakter` });
   }
 
+  // Reset password berlaku untuk seluruh akun (semua situs yang dipegangnya sekaligus),
+  // karena ini memang 1 kredensial login yang sama, bukan password per situs.
   db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(hashPassword(password), account.id);
   console.log(`[admin] Password klien direset: site=${req.params.id}`);
   res.json({ ok: true });
 });
 
+// Putuskan hubungan akun klien dari situs ini saja - akun itu sendiri baru dihapus total
+// kalau ini situs terakhir yang dipegangnya (supaya tidak ada akun "menggantung" tanpa situs).
 adminRouter.delete("/sites/:id/account", requireAdmin, (req, res) => {
-  db.prepare("DELETE FROM users WHERE site_id = ? AND role = 'client'").run(req.params.id);
+  const account = db
+    .prepare(
+      `SELECT u.id FROM users u JOIN user_sites us ON us.user_id = u.id
+       WHERE us.site_id = ? AND u.role = 'client'`,
+    )
+    .get(req.params.id);
+  if (!account) return res.json({ ok: true });
+
+  db.prepare("DELETE FROM user_sites WHERE user_id = ? AND site_id = ?").run(account.id, req.params.id);
+
+  const remaining = db.prepare("SELECT COUNT(*) AS c FROM user_sites WHERE user_id = ?").get(account.id).c;
+  if (remaining === 0) {
+    db.prepare("DELETE FROM users WHERE id = ?").run(account.id);
+  }
+
   res.json({ ok: true });
 });
 

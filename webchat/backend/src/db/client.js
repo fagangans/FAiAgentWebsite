@@ -33,6 +33,14 @@ ensureColumn("sites", "widget_title", "TEXT DEFAULT 'Chat dengan kami'");
 ensureColumn("sites", "widget_bg_color", "TEXT DEFAULT '#0a0a0a'");
 ensureColumn("messages", "is_important", "INTEGER DEFAULT 0");
 
+// Backfill user_sites dari kolom site_id lama, supaya akun klien yang sudah ada
+// (dibuat sebelum 1 akun bisa pegang banyak website) tidak kehilangan akses ke
+// situs mereka. Aman dijalankan berkali-kali (INSERT OR IGNORE + primary key).
+db.exec(`
+  INSERT OR IGNORE INTO user_sites (user_id, site_id)
+  SELECT id, site_id FROM users WHERE role = 'client' AND site_id IS NOT NULL
+`);
+
 // Buat akun admin otomatis saat pertama kali jalan, dari ADMIN_USERNAME/ADMIN_PASSWORD
 // di .env (fallback ke ADMIN_TOKEN supaya deployment yang sudah ada tidak perlu langkah tambahan).
 function seedAdmin() {

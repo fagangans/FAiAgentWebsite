@@ -34,8 +34,11 @@ CREATE TABLE IF NOT EXISTS messages (
   created_at      TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
--- Akun login dashboard. role 'admin' = pemilik sistem (akses semua website),
--- role 'client' = pemilik 1 website (site_id wajib diisi, hanya lihat data sendiri).
+-- Akun login dashboard. role 'admin' = pemilik sistem (akses semua website).
+-- role 'client' = pemilik website - bisa pegang lebih dari 1 website lewat tabel
+-- user_sites di bawah. Kolom site_id di sini sudah tidak dipakai untuk otorisasi
+-- (dipertahankan cuma untuk kompatibilitas data lama), akses sesungguhnya selalu
+-- dicek lewat user_sites.
 CREATE TABLE IF NOT EXISTS users (
   id              TEXT PRIMARY KEY,
   username        TEXT NOT NULL UNIQUE,
@@ -43,6 +46,15 @@ CREATE TABLE IF NOT EXISTS users (
   role            TEXT NOT NULL,
   site_id         TEXT REFERENCES sites(id),
   created_at      TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Penghubung akun klien <-> website, many-to-many: 1 akun klien bisa pegang banyak
+-- website, dan (secara desain) 1 website cuma dihubungkan ke 1 akun klien - tapi
+-- struktur tabel ini tidak memaksakan itu di level DB, validasinya di kode admin.js.
+CREATE TABLE IF NOT EXISTS user_sites (
+  user_id         TEXT NOT NULL REFERENCES users(id),
+  site_id         TEXT NOT NULL REFERENCES sites(id),
+  PRIMARY KEY (user_id, site_id)
 );
 
 CREATE TABLE IF NOT EXISTS usage_log (
@@ -72,3 +84,4 @@ CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id
 CREATE INDEX IF NOT EXISTS idx_usage_site ON usage_log(site_id);
 CREATE INDEX IF NOT EXISTS idx_users_site ON users(site_id);
 CREATE INDEX IF NOT EXISTS idx_leads_site ON leads(site_id);
+CREATE INDEX IF NOT EXISTS idx_user_sites_site ON user_sites(site_id);

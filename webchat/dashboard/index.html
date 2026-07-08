@@ -246,6 +246,10 @@
         <span>Dashboard</span>
       </div>
     </div>
+    <div id="site-switcher-wrap" style="display:none; padding: 0 4px 16px;">
+      <label style="display:block; font-size:11px; color:rgba(255,255,255,.7); margin-bottom:5px; font-weight:600;">Situs Aktif</label>
+      <select id="site-switcher" onchange="switchActiveSite(this.value)" style="width:100%; padding:9px 10px; border-radius:8px; border:1px solid rgba(255,255,255,.3); background:rgba(255,255,255,.14); color:#fff; font-size:13px; font-weight:600;"></select>
+    </div>
     <nav id="sidebar-nav"></nav>
     <div class="sidebar-user">
       <div class="user-name" id="sidebar-username"></div>
@@ -485,21 +489,42 @@
 
     <div class="script-section" style="margin-top:20px; border-top:1px solid #ecd6bb; padding-top:16px;">
       <h4>Akun Login Klien</h4>
-      <p class="hint" style="margin-bottom:10px;">Klien pakai akun ini untuk login ke dashboard mereka sendiri (atur prompt bisnis, kustomisasi widget, lihat inbox CRM). Klien tidak bisa membuat akun lain.</p>
+      <p class="hint" style="margin-bottom:10px;">Klien pakai akun ini untuk login ke dashboard mereka sendiri (atur prompt bisnis, kustomisasi widget, lihat inbox CRM). 1 akun klien bisa dihubungkan ke lebih dari 1 website. Klien tidak bisa membuat/menghubungkan akun sendiri.</p>
+
       <div id="edit-account-existing" style="display:none; margin-bottom:10px; font-size:13px; color:#6b5644;">
         Username aktif: <strong id="edit-account-username" style="color:#2b2b2b"></strong>
+        <div id="edit-account-multisite-note" style="display:none; margin-top:4px; color:#9c8a76;"></div>
       </div>
-      <div class="form-row">
-        <label>Username</label>
-        <input type="text" id="edit-account-username-input" placeholder="username klien">
+
+      <!-- Pilihan mode - cuma muncul kalau situs ini BELUM punya akun terhubung -->
+      <div id="account-mode-toggle" class="status-filters" style="display:none;">
+        <button class="filter-pill active" id="mode-btn-new" onclick="switchAccountMode('new')">Buat Akun Baru</button>
+        <button class="filter-pill" id="mode-btn-link" onclick="switchAccountMode('link')">Hubungkan Akun yang Sudah Ada</button>
       </div>
-      <div class="form-row">
-        <label>Password <span id="edit-account-pw-hint" style="color:#9c8a76"></span></label>
-        <input type="password" id="edit-account-password-input" placeholder="Kosongkan jika tidak ingin diubah">
+
+      <!-- Mode: buat akun baru (atau reset password kalau sudah ada akun terhubung) -->
+      <div id="account-form-new">
+        <div class="form-row">
+          <label>Username</label>
+          <input type="text" id="edit-account-username-input" placeholder="username klien">
+        </div>
+        <div class="form-row">
+          <label>Password <span id="edit-account-pw-hint" style="color:#9c8a76"></span></label>
+          <input type="password" id="edit-account-password-input" placeholder="Kosongkan jika tidak ingin diubah">
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-orange btn-sm" id="edit-account-save-btn" onclick="saveClientAccount()">Simpan Akun</button>
+          <button class="btn btn-danger btn-sm" id="edit-account-delete-btn" style="display:none;" onclick="deleteClientAccount()">Putuskan dari Situs Ini</button>
+        </div>
       </div>
-      <div class="btn-row">
-        <button class="btn btn-orange btn-sm" id="edit-account-save-btn" onclick="saveClientAccount()">Simpan Akun</button>
-        <button class="btn btn-danger btn-sm" id="edit-account-delete-btn" style="display:none;" onclick="deleteClientAccount()">Hapus Akun</button>
+
+      <!-- Mode: hubungkan akun klien yang sudah ada -->
+      <div id="account-form-link" style="display:none;">
+        <div class="form-row">
+          <label>Pilih Akun Klien</label>
+          <select id="link-account-select"><option value="">Memuat daftar akun...</option></select>
+        </div>
+        <button class="btn btn-orange btn-sm" id="link-account-btn" onclick="linkExistingAccount()">Hubungkan Situs Ini</button>
       </div>
     </div>
 
@@ -650,6 +675,8 @@ let authRole = "";
 let currentPanel = "";
 let currentLeadFilter = "";
 let currentLeadId = null;
+let currentSiteId = "";
+let clientSites = [];
 
 function showToast(msg) {
   const t = document.getElementById("toast");
@@ -660,6 +687,13 @@ function showToast(msg) {
 
 function authHeaders(extra) {
   return Object.assign({ Authorization: "Bearer " + authToken }, extra || {});
+}
+
+// Dipakai khusus endpoint /api/client/* yang scoped ke 1 situs - 1 akun klien bisa
+// pegang beberapa situs, jadi situs mana yang sedang aktif dikirim eksplisit lewat
+// header ini (bukan ditanam di JWT), sesuai pilihan di dropdown "Situs Aktif".
+function clientHeaders(extra) {
+  return authHeaders(Object.assign({ "X-Site-Id": currentSiteId }, extra || {}));
 }
 
 function escapeHtml(str) {
@@ -706,8 +740,11 @@ function doLogin() {
 function doLogout() {
   sessionStorage.removeItem("wc_token");
   sessionStorage.removeItem("wc_role");
+  sessionStorage.removeItem("wc_active_site");
   authToken = "";
   authRole = "";
+  currentSiteId = "";
+  clientSites = [];
   document.getElementById("app-shell").style.display = "none";
   document.getElementById("app-shell").classList.remove("flex");
   document.getElementById("login-screen").style.display = "flex";
@@ -722,11 +759,53 @@ function enterDashboard() {
   document.getElementById("app-shell").classList.add("flex");
   document.getElementById("page-date").textContent = new Date().toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
-  buildSidebar();
   loadMeIntoSidebar();
 
-  const menu = authRole === "admin" ? ADMIN_MENU : CLIENT_MENU;
-  switchPanel(menu[0].key);
+  if (authRole === "client") {
+    // 1 akun klien bisa pegang beberapa situs - ambil daftarnya dulu, isi dropdown
+    // "Situs Aktif", baru render menu & panel supaya semua data yang dimuat sudah
+    // scoped ke situs yang benar sejak awal.
+    document.getElementById("site-switcher-wrap").style.display = "block";
+    fetch(API_BASE + "/api/client/sites", { headers: authHeaders() })
+      .then((r) => r.json())
+      .then((sites) => {
+        clientSites = sites;
+        buildSidebar();
+        if (!sites.length) {
+          showToast("Akun ini belum terhubung ke situs manapun - hubungi admin");
+          return;
+        }
+        const savedSiteId = sessionStorage.getItem("wc_active_site");
+        currentSiteId = sites.some((s) => s.id === savedSiteId) ? savedSiteId : sites[0].id;
+        renderSiteSwitcher();
+        switchPanel(CLIENT_MENU[0].key);
+      })
+      .catch(() => showToast("Gagal memuat daftar situs"));
+  } else {
+    document.getElementById("site-switcher-wrap").style.display = "none";
+    buildSidebar();
+    switchPanel(ADMIN_MENU[0].key);
+  }
+}
+
+function renderSiteSwitcher() {
+  const select = document.getElementById("site-switcher");
+  select.innerHTML = "";
+  clientSites.forEach((s) => {
+    const opt = document.createElement("option");
+    opt.value = s.id;
+    opt.textContent = s.name;
+    if (s.id === currentSiteId) opt.selected = true;
+    select.appendChild(opt);
+  });
+}
+
+function switchActiveSite(siteId) {
+  currentSiteId = siteId;
+  sessionStorage.setItem("wc_active_site", siteId);
+  const site = clientSites.find((s) => s.id === siteId);
+  if (site) showToast("Beralih ke situs: " + site.name);
+  switchPanel(currentPanel || CLIENT_MENU[0].key);
 }
 
 function buildSidebar() {
@@ -940,27 +1019,87 @@ function closeEditModal() {
   document.getElementById("edit-modal").classList.remove("open");
 }
 
+function switchAccountMode(mode) {
+  document.getElementById("mode-btn-new").classList.toggle("active", mode === "new");
+  document.getElementById("mode-btn-link").classList.toggle("active", mode === "link");
+  document.getElementById("account-form-new").style.display = mode === "new" ? "block" : "none";
+  document.getElementById("account-form-link").style.display = mode === "link" ? "block" : "none";
+}
+
 function loadClientAccount(siteId) {
   document.getElementById("edit-account-username-input").value = "";
   document.getElementById("edit-account-password-input").value = "";
+  switchAccountMode("new");
+
   fetch(API_BASE + "/api/admin/sites/" + siteId + "/account", { headers: authHeaders() })
     .then((r) => r.json())
     .then((account) => {
       if (account) {
+        document.getElementById("account-mode-toggle").style.display = "none";
         document.getElementById("edit-account-existing").style.display = "block";
         document.getElementById("edit-account-username").textContent = account.username;
         document.getElementById("edit-account-username-input").value = account.username;
         document.getElementById("edit-account-username-input").disabled = true;
         document.getElementById("edit-account-pw-hint").textContent = "(kosongkan jika tidak ingin diubah)";
         document.getElementById("edit-account-delete-btn").style.display = "inline-flex";
+
+        const noteEl = document.getElementById("edit-account-multisite-note");
+        if (account.site_count > 1) {
+          noteEl.style.display = "block";
+          noteEl.textContent = "Akun ini juga mengelola " + (account.site_count - 1) + " website lain.";
+        } else {
+          noteEl.style.display = "none";
+        }
       } else {
+        // Belum ada akun terhubung ke situs ini - tampilkan pilihan buat baru / hubungkan yang sudah ada.
+        document.getElementById("account-mode-toggle").style.display = "flex";
         document.getElementById("edit-account-existing").style.display = "none";
         document.getElementById("edit-account-username-input").disabled = false;
         document.getElementById("edit-account-pw-hint").textContent = "";
         document.getElementById("edit-account-delete-btn").style.display = "none";
+        loadLinkableAccounts();
       }
     })
     .catch(() => {});
+}
+
+function loadLinkableAccounts() {
+  const select = document.getElementById("link-account-select");
+  select.innerHTML = '<option value="">Memuat daftar akun...</option>';
+  fetch(API_BASE + "/api/admin/accounts", { headers: authHeaders() })
+    .then((r) => r.json())
+    .then((accounts) => {
+      if (!accounts.length) {
+        select.innerHTML = '<option value="">Belum ada akun klien lain</option>';
+        return;
+      }
+      select.innerHTML = '<option value="">-- pilih akun --</option>';
+      accounts.forEach((a) => {
+        const opt = document.createElement("option");
+        opt.value = a.id;
+        opt.textContent = a.username + " (" + a.site_count + " website)";
+        select.appendChild(opt);
+      });
+    })
+    .catch(() => { select.innerHTML = '<option value="">Gagal memuat daftar akun</option>'; });
+}
+
+function linkExistingAccount() {
+  if (!editingSiteId) return;
+  const userId = document.getElementById("link-account-select").value;
+  if (!userId) { showToast("Pilih akun klien dulu"); return; }
+
+  const btn = document.getElementById("link-account-btn");
+  btn.disabled = true;
+  fetch(API_BASE + "/api/admin/sites/" + editingSiteId + "/link-account", {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ userId }),
+  })
+    .then((r) => { if (!r.ok) return r.json().then((d) => { throw new Error(d.error); }); return r.json(); })
+    .then((data) => { showToast('Website ini dihubungkan ke akun "' + data.username + '"'); loadClientAccount(editingSiteId); })
+    .catch((err) => showToast("Gagal: " + err.message))
+    .finally(() => { btn.disabled = false; });
 }
 
 function saveClientAccount() {
@@ -999,14 +1138,14 @@ function saveClientAccount() {
 
 function deleteClientAccount() {
   if (!editingSiteId) return;
-  if (!confirm("Hapus akun klien ini? Klien tidak akan bisa login lagi sampai dibuatkan akun baru.")) return;
+  if (!confirm("Putuskan akun klien dari website ini? Kalau ini website terakhir yang dipegang akun tersebut, akunnya akan terhapus total dan tidak bisa login lagi.")) return;
 
   fetch(API_BASE + "/api/admin/sites/" + editingSiteId + "/account", {
     method: "DELETE",
     headers: authHeaders(),
   })
-    .then((r) => { if (!r.ok) throw new Error("Gagal menghapus akun"); return r.json(); })
-    .then(() => { showToast("Akun klien dihapus"); loadClientAccount(editingSiteId); })
+    .then((r) => { if (!r.ok) throw new Error("Gagal memutuskan akun"); return r.json(); })
+    .then(() => { showToast("Akun klien diputuskan dari website ini"); loadClientAccount(editingSiteId); })
     .catch((err) => showToast("Gagal: " + err.message));
 }
 
@@ -1065,9 +1204,9 @@ function closeScriptModal() {
 
 function loadClientDashboard() {
   Promise.all([
-    fetch(API_BASE + "/api/client/conversations", { headers: authHeaders() }).then((r) => r.json()),
-    fetch(API_BASE + "/api/client/leads", { headers: authHeaders() }).then((r) => r.json()),
-    fetch(API_BASE + "/api/client/analytics", { headers: authHeaders() }).then((r) => r.json()),
+    fetch(API_BASE + "/api/client/conversations", { headers: clientHeaders() }).then((r) => r.json()),
+    fetch(API_BASE + "/api/client/leads", { headers: clientHeaders() }).then((r) => r.json()),
+    fetch(API_BASE + "/api/client/analytics", { headers: clientHeaders() }).then((r) => r.json()),
   ])
     .then(([conversations, leads, analytics]) => {
       document.getElementById("cl-stat-conversations").textContent = conversations.length;
@@ -1083,7 +1222,7 @@ function loadClientDashboard() {
 // ---------- Client: Pengaturan Chatbot & Widget ----------
 
 function loadClientMe() {
-  fetch(API_BASE + "/api/client/me", { headers: authHeaders() })
+  fetch(API_BASE + "/api/client/me", { headers: clientHeaders() })
     .then((r) => r.json())
     .then((site) => {
       document.getElementById("prompt-input").value = site.system_prompt || "";
@@ -1103,7 +1242,7 @@ function savePrompt() {
   btn.disabled = true;
   fetch(API_BASE + "/api/client/me", {
     method: "PATCH",
-    headers: authHeaders({ "Content-Type": "application/json" }),
+    headers: clientHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ systemPrompt }),
   })
     .then((r) => { if (!r.ok) return r.json().then((d) => { throw new Error(d.error); }); return r.json(); })
@@ -1155,7 +1294,7 @@ function saveWidget() {
 
   fetch(API_BASE + "/api/client/me", {
     method: "PATCH",
-    headers: authHeaders({ "Content-Type": "application/json" }),
+    headers: clientHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ widgetColor, widgetBgColor, widgetPosition, widgetGreeting, widgetTitle }),
   })
     .then((r) => { if (!r.ok) return r.json().then((d) => { throw new Error(d.error); }); return r.json(); })
@@ -1167,7 +1306,7 @@ function saveWidget() {
 // ---------- Client: Percakapan ----------
 
 function loadConversations() {
-  fetch(API_BASE + "/api/client/conversations", { headers: authHeaders() })
+  fetch(API_BASE + "/api/client/conversations", { headers: clientHeaders() })
     .then((r) => r.json())
     .then((conversations) => {
       const el = document.getElementById("conv-list");
@@ -1189,7 +1328,7 @@ function loadConversations() {
 }
 
 function openMessages(conversationId) {
-  fetch(API_BASE + "/api/client/conversations/" + conversationId + "/messages", { headers: authHeaders() })
+  fetch(API_BASE + "/api/client/conversations/" + conversationId + "/messages", { headers: clientHeaders() })
     .then((r) => r.json())
     .then((messages) => {
       const el = document.getElementById("messages-list");
@@ -1219,7 +1358,7 @@ function filterLeads(status) {
 
 function loadLeads(status) {
   const url = API_BASE + "/api/client/leads" + (status ? "?status=" + encodeURIComponent(status) : "");
-  fetch(url, { headers: authHeaders() })
+  fetch(url, { headers: clientHeaders() })
     .then((r) => r.json())
     .then((leads) => {
       const el = document.getElementById("lead-list");
@@ -1257,7 +1396,7 @@ function openLead(lead) {
 
   const msgEl = document.getElementById("lead-messages-list");
   msgEl.innerHTML = '<div class="empty-msg">Memuat riwayat...</div>';
-  fetch(API_BASE + "/api/client/conversations/" + lead.conversation_id + "/messages", { headers: authHeaders() })
+  fetch(API_BASE + "/api/client/conversations/" + lead.conversation_id + "/messages", { headers: clientHeaders() })
     .then((r) => r.json())
     .then((messages) => {
       msgEl.innerHTML = "";
@@ -1286,7 +1425,7 @@ function saveLead() {
   btn.disabled = true;
   fetch(API_BASE + "/api/client/leads/" + currentLeadId, {
     method: "PATCH",
-    headers: authHeaders({ "Content-Type": "application/json" }),
+    headers: clientHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ status, notes }),
   })
     .then((r) => { if (!r.ok) return r.json().then((d) => { throw new Error(d.error); }); return r.json(); })
@@ -1298,7 +1437,7 @@ function saveLead() {
 // ---------- Client: Statistik ----------
 
 function loadAnalytics() {
-  fetch(API_BASE + "/api/client/analytics", { headers: authHeaders() })
+  fetch(API_BASE + "/api/client/analytics", { headers: clientHeaders() })
     .then((r) => r.json())
     .then((data) => {
       renderDailyChart(data.dailyVolume);

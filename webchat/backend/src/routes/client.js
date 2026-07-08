@@ -1,12 +1,26 @@
 import { Router } from "express";
 import db from "../db/client.js";
-import { requireClient } from "../middleware/requireClient.js";
+import { requireClient, requireClientAny } from "../middleware/requireClient.js";
 
 export const clientRouter = Router();
 
 const ALLOWED_COLORS = /^#[0-9a-fA-F]{6}$/;
 const LEAD_STATUSES = ["baru", "dihubungi", "selesai"];
 const DAY_LABELS = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+
+// Daftar situs yang bisa diakses akun ini - dipakai dashboard untuk isi dropdown
+// pemilih situs. Tidak butuh header X-Site-Id karena ini justru yang menentukannya.
+clientRouter.get("/sites", requireClientAny, (req, res) => {
+  const sites = db
+    .prepare(
+      `SELECT s.id, s.name FROM sites s
+       JOIN user_sites us ON us.site_id = s.id
+       WHERE us.user_id = ?
+       ORDER BY s.name ASC`,
+    )
+    .all(req.clientUserId);
+  res.json(sites);
+});
 
 clientRouter.get("/me", requireClient, (req, res) => {
   const site = db
