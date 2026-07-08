@@ -26,6 +26,17 @@ app.set("trust proxy", 1);
 // Security headers (A05) — CSP dinonaktifkan karena admin/client pages pakai inline scripts.
 app.use(helmet({ contentSecurityPolicy: false }));
 
+// helmet defaultnya set Cross-Origin-Resource-Policy: same-origin di semua respons, yang
+// memblokir browser memuat chat-widget.js (dan fetch ke endpoint chat) dari domain klien
+// manapun (ERR_BLOCKED_BY_RESPONSE.NotSameOrigin) — padahal ini beda dari header CORS di
+// bawah dan tetap diblokir walau CORS sudah mengizinkan. Longgarkan khusus untuk 3 endpoint
+// yang memang sengaja dipasang di domain pihak ketiga; halaman admin/client/dashboard tetap
+// pakai default same-origin dari helmet.
+const crossOriginResource = helmet.crossOriginResourcePolicy({ policy: "cross-origin" });
+app.use("/widget", crossOriginResource);
+app.use("/api/widget-config", crossOriginResource);
+app.use("/api/chat", crossOriginResource);
+
 app.use(express.json({ limit: "100kb" }));
 app.use("/widget", express.static(path.join(__dirname, "../../widget")));
 app.use("/admin", express.static(path.join(__dirname, "../../admin")));
