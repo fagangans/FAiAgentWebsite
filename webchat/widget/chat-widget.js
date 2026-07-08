@@ -87,7 +87,9 @@
         box-shadow: 0 2px 12px rgba(0,0,0,.25); transition: box-shadow .2s, transform .2s; }
       #wc-bubble svg { width: 25px; height: 25px; }
       #wc-bubble:hover { box-shadow: 0 4px 18px rgba(0,0,0,.35); transform: translateY(-1px); }
-      #wc-panel { position: fixed; ${vertProp}: ${panelVertOffset}px; ${sideProp}: ${offsetX}px; width: 320px; height: 440px;
+      #wc-panel { position: fixed; ${vertProp}: ${panelVertOffset}px; ${sideProp}: ${offsetX}px; width: 320px;
+        max-width: calc(100vw - ${offsetX * 2}px); height: 440px;
+        max-height: calc(100vh - ${panelVertOffset}px - 16px);
         background: ${bgColor}; border: 1px solid ${overlayBorder}; border-radius: 16px;
         box-shadow: 0 8px 28px rgba(0,0,0,.5); display: none; flex-direction: column;
         overflow: hidden; z-index: 9999; font-family: inherit; color: ${panelText}; }
