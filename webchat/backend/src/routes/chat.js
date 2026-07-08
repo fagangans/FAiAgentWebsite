@@ -13,16 +13,48 @@ const MAX_HISTORY = 10; // jumlah pesan terakhir yang dikirim sebagai context
 // Dipaksakan ke semua provider supaya balasan terasa seperti manusia asli,
 // bukan robot kaku, dan widget (yang render teks polos, bukan markdown) tidak
 // menampilkan simbol "**" / "*" / "#" mentah-mentah ke pengunjung.
-const STYLE_GUIDE = `Gaya bicara wajib: balas seperti orang Indonesia asli yang ramah dan profesional, bukan seperti robot. Jawaban singkat, padat, langsung ke inti - jangan bertele-tele. Jangan pernah pakai format markdown (tanda bintang **, underscore __, pagar #, atau bullet list dengan - atau *). Tulis dalam kalimat/paragraf biasa saja.`;
+const STYLE_GUIDE = `Gaya bicara wajib: balas seperti orang Indonesia asli yang ramah dan profesional, bukan seperti robot. Jawaban singkat, padat, langsung ke inti - jangan bertele-tele. Tulis dalam kalimat atau paragraf biasa, seperti chat WhatsApp dengan pelanggan. Jangan pernah pakai format markdown (bintang **, underscore __, pagar #, bullet dengan - atau *, penomoran 1. 2. 3., tanda kutip balik \`, atau blockquote >). Jangan pakai emoji. Jangan pakai tanda baca berlebihan seperti !!! atau ???. Jangan pakai tanda kutip miring/lengkung atau tanda pisah panjang (—), pakai tanda baca biasa saja.`;
 
+// Lapis kedua di kode (bukan cuma andalkan AI patuh instruksi) - AI provider mana pun
+// (ai4chat, Gemini, dst) kadang tetap selip format markdown/simbol aneh walau sudah
+// dilarang di system prompt, jadi hasilnya dibersihkan paksa sebelum dikirim ke pengunjung.
 function stripMarkdown(text) {
   return text
+    // code block & inline code
+    .replace(/```[\s\S]*?```/g, (m) => m.replace(/```/g, "").trim())
+    .replace(/`([^`]*)`/g, "$1")
+    // link [teks](url) -> teks saja
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    // bold/italic/underline, urutan dari yang paling panjang
+    .replace(/\*\*\*(.*?)\*\*\*/g, "$1")
     .replace(/\*\*(.*?)\*\*/g, "$1")
     .replace(/\*(.*?)\*/g, "$1")
+    .replace(/___(.*?)___/g, "$1")
     .replace(/__(.*?)__/g, "$1")
     .replace(/_(.*?)_/g, "$1")
+    // heading
     .replace(/^#{1,6}\s+/gm, "")
-    .replace(/^[-*]\s+/gm, "")
+    // blockquote
+    .replace(/^>\s?/gm, "")
+    // garis pemisah horizontal
+    .replace(/^(-{3,}|_{3,}|\*{3,})$/gm, "")
+    // bullet & penomoran list
+    .replace(/^[-*+]\s+/gm, "")
+    .replace(/^\d+\.\s+/gm, "")
+    // tanda kutip & tanda pisah "pintar" -> versi biasa
+    .replace(/[‘’]/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/[–—]/g, "-")
+    .replace(/…/g, "...")
+    // emoji & simbol dekoratif (bintang, centang, panah, dingbat, dll)
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F1E6}-\u{1F1FF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}]/gu, "")
+    // karakter kontrol/zero-width dari copy-paste atau encoding rusak
+    .replace(/[\u200b-\u200d\ufeff\x00-\x08\x0b\x0c\x0e-\x1f]/g, "")
+    // tanda baca berlebihan
+    .replace(/([!?])\1{2,}/g, "$1$1")
+    // rapikan spasi & baris kosong berlebih
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]{2,}/g, " ")
     .trim();
 }
 
