@@ -27,11 +27,18 @@ function ensureColumn(table, column, definition) {
 }
 
 ensureColumn("sites", "widget_color", "TEXT DEFAULT '#c9a84c'");
-ensureColumn("sites", "widget_position", "TEXT DEFAULT 'right'");
+ensureColumn("sites", "widget_position", "TEXT DEFAULT 'bottom-right'");
+ensureColumn("sites", "widget_offset_x", "INTEGER DEFAULT 20");
+ensureColumn("sites", "widget_offset_y", "INTEGER DEFAULT 20");
 ensureColumn("sites", "widget_greeting", "TEXT DEFAULT 'Halo! Ada yang bisa saya bantu?'");
 ensureColumn("sites", "widget_title", "TEXT DEFAULT 'Chat dengan kami'");
 ensureColumn("sites", "widget_bg_color", "TEXT DEFAULT '#0a0a0a'");
 ensureColumn("messages", "is_important", "INTEGER DEFAULT 0");
+
+// Nilai widget_position lama cuma 'left'/'right' (dianggap selalu di bawah) - konversi
+// ke format pojok baru supaya tampilan widget yang sudah dipasang klien tidak berubah.
+db.exec(`UPDATE sites SET widget_position = 'bottom-right' WHERE widget_position = 'right'`);
+db.exec(`UPDATE sites SET widget_position = 'bottom-left' WHERE widget_position = 'left'`);
 
 // Backfill user_sites dari kolom site_id lama, supaya akun klien yang sudah ada
 // (dibuat sebelum 1 akun bisa pegang banyak website) tidak kehilangan akses ke

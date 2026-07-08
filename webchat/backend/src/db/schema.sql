@@ -10,7 +10,9 @@ CREATE TABLE IF NOT EXISTS sites (
   system_prompt   TEXT DEFAULT 'Kamu adalah customer service dari bisnis ini.',
   ai_provider     TEXT DEFAULT 'ai4chat',  -- 'ai4chat' | 'gemini' | 'qwen' | 'claude'
   widget_color    TEXT DEFAULT '#c9a84c',  -- warna gelembung & header widget, diatur klien sendiri
-  widget_position TEXT DEFAULT 'right',    -- 'right' | 'left'
+  widget_position TEXT DEFAULT 'bottom-right', -- 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left'
+  widget_offset_x INTEGER DEFAULT 20,      -- jarak horizontal dari sisi (px), diatur klien sendiri
+  widget_offset_y INTEGER DEFAULT 20,      -- jarak vertikal dari sisi (px), diatur klien sendiri
   widget_greeting TEXT DEFAULT 'Halo! Ada yang bisa saya bantu?',
   widget_title    TEXT DEFAULT 'Chat dengan kami', -- judul di header panel chat, diatur klien sendiri
   widget_bg_color TEXT DEFAULT '#0a0a0a',  -- warna latar panel chat, diatur klien sendiri

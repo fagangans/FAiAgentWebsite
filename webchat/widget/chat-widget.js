@@ -29,6 +29,11 @@
   const defaultColor = "#c9a84c";
   const defaultBgColor = "#0a0a0a";
   const defaultTitle = "Chat dengan kami";
+  const defaultPosition = "bottom-right";
+  const defaultOffsetX = 20;
+  const defaultOffsetY = 20;
+  const BUBBLE_SIZE = 56;
+  const BUBBLE_PANEL_GAP = 12;
 
   // Ikon garis (stroke, gaya Feather) - bukan emoji, supaya bubble terlihat seperti
   // widget produk profesional yang dirancang, bukan karakter default sistem/AI generik.
@@ -57,9 +62,17 @@
     return luminance > 150 ? "#1a1a1a" : "#ffffff";
   }
 
-  function buildStyle(color, position, bgColor) {
+  // position = salah satu pojok layar ('bottom-right' | 'bottom-left' | 'top-right' | 'top-left').
+  // offsetX/offsetY = jarak custom (px) dari sisi horizontal/vertikal yang dipilih, diatur klien
+  // sendiri di dashboard - jadi widget bisa diposisikan persis sesuai kebutuhan tiap website.
+  function buildStyle(color, position, bgColor, offsetX, offsetY) {
     const dark = shadeColor(color, -0.25);
-    const side = position === "left" ? "left" : "right";
+    const isRight = position.indexOf("right") !== -1;
+    const isTop = position.indexOf("top") !== -1;
+    const sideProp = isRight ? "right" : "left";
+    const vertProp = isTop ? "top" : "bottom";
+    const panelVertOffset = offsetY + BUBBLE_SIZE + BUBBLE_PANEL_GAP;
+
     const bubbleText = idealTextColor(color);
     const panelText = idealTextColor(bgColor);
     const isDarkPanel = panelText === "#ffffff";
@@ -68,13 +81,13 @@
     const mutedText = isDarkPanel ? "rgba(255,255,255,.45)" : "rgba(0,0,0,.4)";
 
     return `
-      #wc-bubble { position: fixed; bottom: 20px; ${side}: 20px; width: 56px; height: 56px;
+      #wc-bubble { position: fixed; ${vertProp}: ${offsetY}px; ${sideProp}: ${offsetX}px; width: ${BUBBLE_SIZE}px; height: ${BUBBLE_SIZE}px;
         border-radius: 50%; background: linear-gradient(180deg, ${color}, ${dark}); color: ${bubbleText};
         border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 9999;
         box-shadow: 0 2px 12px rgba(0,0,0,.25); transition: box-shadow .2s, transform .2s; }
       #wc-bubble svg { width: 25px; height: 25px; }
       #wc-bubble:hover { box-shadow: 0 4px 18px rgba(0,0,0,.35); transform: translateY(-1px); }
-      #wc-panel { position: fixed; bottom: 88px; ${side}: 20px; width: 320px; height: 440px;
+      #wc-panel { position: fixed; ${vertProp}: ${panelVertOffset}px; ${sideProp}: ${offsetX}px; width: 320px; height: 440px;
         background: ${bgColor}; border: 1px solid ${overlayBorder}; border-radius: 16px;
         box-shadow: 0 8px 28px rgba(0,0,0,.5); display: none; flex-direction: column;
         overflow: hidden; z-index: 9999; font-family: inherit; color: ${panelText}; }
@@ -102,7 +115,7 @@
   }
 
   const styleEl = document.createElement("style");
-  styleEl.textContent = buildStyle(defaultColor, "right", defaultBgColor);
+  styleEl.textContent = buildStyle(defaultColor, defaultPosition, defaultBgColor, defaultOffsetX, defaultOffsetY);
   document.head.appendChild(styleEl);
 
   const bubble = document.createElement("button");
@@ -148,7 +161,10 @@
     .then((config) => {
       if (!config) return;
       const bgColor = config.widget_bg_color || defaultBgColor;
-      styleEl.textContent = buildStyle(config.widget_color || defaultColor, config.widget_position, bgColor);
+      const position = config.widget_position || defaultPosition;
+      const offsetX = Number.isInteger(config.widget_offset_x) ? config.widget_offset_x : defaultOffsetX;
+      const offsetY = Number.isInteger(config.widget_offset_y) ? config.widget_offset_y : defaultOffsetY;
+      styleEl.textContent = buildStyle(config.widget_color || defaultColor, position, bgColor, offsetX, offsetY);
       if (config.widget_title) headerEl.textContent = config.widget_title;
       if (config.widget_greeting) addMessage(config.widget_greeting, "bot");
     })

@@ -7,6 +7,8 @@ export const clientRouter = Router();
 const ALLOWED_COLORS = /^#[0-9a-fA-F]{6}$/;
 const LEAD_STATUSES = ["baru", "dihubungi", "selesai"];
 const DAY_LABELS = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+const WIDGET_CORNERS = ["bottom-right", "bottom-left", "top-right", "top-left"];
+const MAX_WIDGET_OFFSET = 300; // px - batas wajar supaya widget tidak bisa digeser keluar layar
 
 // Daftar situs yang bisa diakses akun ini - dipakai dashboard untuk isi dropdown
 // pemilih situs. Tidak butuh header X-Site-Id karena ini justru yang menentukannya.
@@ -25,8 +27,8 @@ clientRouter.get("/sites", requireClientAny, (req, res) => {
 clientRouter.get("/me", requireClient, (req, res) => {
   const site = db
     .prepare(
-      `SELECT id, name, system_prompt, ai_provider, widget_color, widget_position, widget_greeting,
-              widget_title, widget_bg_color
+      `SELECT id, name, system_prompt, ai_provider, widget_color, widget_position, widget_offset_x,
+              widget_offset_y, widget_greeting, widget_title, widget_bg_color
        FROM sites WHERE id = ?`,
     )
     .get(req.clientSiteId);
@@ -36,7 +38,10 @@ clientRouter.get("/me", requireClient, (req, res) => {
 });
 
 clientRouter.patch("/me", requireClient, (req, res) => {
-  const { systemPrompt, widgetColor, widgetPosition, widgetGreeting, widgetTitle, widgetBgColor } = req.body;
+  const {
+    systemPrompt, widgetColor, widgetPosition, widgetOffsetX, widgetOffsetY,
+    widgetGreeting, widgetTitle, widgetBgColor,
+  } = req.body;
   const fields = [];
   const values = [];
 
@@ -49,11 +54,27 @@ clientRouter.patch("/me", requireClient, (req, res) => {
     values.push(widgetColor);
   }
   if (widgetPosition !== undefined) {
-    if (!["left", "right"].includes(widgetPosition)) {
-      return res.status(400).json({ error: "widgetPosition harus 'left' atau 'right'" });
+    if (!WIDGET_CORNERS.includes(widgetPosition)) {
+      return res.status(400).json({ error: "widgetPosition harus salah satu dari: " + WIDGET_CORNERS.join(", ") });
     }
     fields.push("widget_position = ?");
     values.push(widgetPosition);
+  }
+  if (widgetOffsetX !== undefined) {
+    const x = Number(widgetOffsetX);
+    if (!Number.isInteger(x) || x < 0 || x > MAX_WIDGET_OFFSET) {
+      return res.status(400).json({ error: `widgetOffsetX harus angka 0-${MAX_WIDGET_OFFSET}` });
+    }
+    fields.push("widget_offset_x = ?");
+    values.push(x);
+  }
+  if (widgetOffsetY !== undefined) {
+    const y = Number(widgetOffsetY);
+    if (!Number.isInteger(y) || y < 0 || y > MAX_WIDGET_OFFSET) {
+      return res.status(400).json({ error: `widgetOffsetY harus angka 0-${MAX_WIDGET_OFFSET}` });
+    }
+    fields.push("widget_offset_y = ?");
+    values.push(y);
   }
   if (widgetGreeting !== undefined) { fields.push("widget_greeting = ?"); values.push(widgetGreeting); }
   if (widgetTitle !== undefined) {

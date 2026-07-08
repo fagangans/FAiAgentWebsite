@@ -20,6 +20,13 @@ const STYLE_GUIDE = `Gaya bicara wajib: balas seperti orang Indonesia asli yang 
 // dilarang di system prompt, jadi hasilnya dibersihkan paksa sebelum dikirim ke pengunjung.
 function stripMarkdown(text) {
   return text
+    // artefak escape mentah (\" \' \n \t) yang kadang ikut kebawa dari respons AI yang
+    // sebenarnya berformat JSON - ini karakter backslash+huruf literal di dalam teks,
+    // bukan escape sungguhan, jadi harus dibersihkan duluan sebelum aturan lain jalan.
+    .replace(/\\"/g, '"')
+    .replace(/\\'/g, "'")
+    .replace(/\\n/g, "\n")
+    .replace(/\\t/g, " ")
     // code block & inline code
     .replace(/```[\s\S]*?```/g, (m) => m.replace(/```/g, "").trim())
     .replace(/`([^`]*)`/g, "$1")
@@ -124,7 +131,9 @@ chatRouter.get("/widget-config", (req, res) => {
 
   const site = db
     .prepare(
-      "SELECT widget_color, widget_position, widget_greeting, widget_title, widget_bg_color FROM sites WHERE widget_key = ? AND is_active = 1",
+      `SELECT widget_color, widget_position, widget_offset_x, widget_offset_y, widget_greeting,
+              widget_title, widget_bg_color
+       FROM sites WHERE widget_key = ? AND is_active = 1`,
     )
     .get(widgetKey);
 
