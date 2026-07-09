@@ -1,3 +1,6 @@
+// NOTE: These are deployment placeholders, not real credentials.
+// Deployer MUST replace tgToken (from @BotFather) and tgOwner (from @userinfobot)
+// before deploying to production.
 globalThis.tgToken = "AMBIL DARI BOT FATHER";
 globalThis.tgOwner = ["AMBIL DARI @userinfobot"];
 

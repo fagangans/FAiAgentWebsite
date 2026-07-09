@@ -21,7 +21,7 @@ import FormData from "form-data";
 import axios from "axios";
 
 // Apikeys
-const REMOVEBG_API_KEY = "sk-sakanaa-eb8614f0b2dd958a1191b4d0588393f4780b66942af824c2";
+const REMOVEBG_API_KEY = process.env.REMOVEBG_API_KEY;
 
 export const info = {
   name: "Remove Background",

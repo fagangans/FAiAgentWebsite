@@ -1,4 +1,7 @@
 LenwySesi
 node_modules
-yarn.lockTelegram/database/users.json
+yarn.lock
+Telegram/database/
 LenwySesi/
+.env
+.env.local
